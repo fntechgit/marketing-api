@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django_filters',
     'api.apps.ApiConfig',
 ]
 
@@ -60,7 +61,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
-
+# https://docs.djangoproject.com/en/3.0/ref/settings/#std:setting-ROOT_URLCONF
 ROOT_URLCONF = 'backend.urls'
 
 TEMPLATES = [
@@ -205,6 +206,36 @@ LOGGING = {
             'propagate': True,
         },
     },
+}
+
+REST_FRAMEWORK = {
+    #'EXCEPTION_HANDLER': 'api.exceptions.custom_exception_handler',
+    #'DEFAULT_AUTHENTICATION_CLASSES': (
+    #    'api.jwt.CustomJSONWebTokenAuthentication',
+    #    'rest_framework.authentication.SessionAuthentication',
+    #    'rest_framework.authentication.BasicAuthentication',
+    #),
+    'DEFAULT_RENDERER_CLASSES': (
+        'rest_framework.renderers.JSONRenderer',
+    ),
+    'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
+    'DEFAULT_PERMISSION_CLASSES': [
+        # default one
+        'rest_framework.permissions.AllowAny',
+    ],
+    'SEARCH_PARAM': 'filter',
+    'ORDERING_PARAM': 'order',
+    'DEFAULT_VERSIONING_CLASS': 'rest_framework.versioning.URLPathVersioning',
+    'DEFAULT_PAGINATION_CLASS': 'api.utils.pagination.LargeResultsSetPagination',
+    'PAGE_SIZE': 100,
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle'
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '1000/min',
+        'user': '10000/min'
+    }
 }
 
 # https://docs.djangoproject.com/en/3.0/ref/settings/

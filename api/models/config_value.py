@@ -22,7 +22,7 @@ class ConfigValue(TimeStampedModel):
     show_id = models.IntegerField(default=0)
 
     class Meta:
-        db_table = 'config_value'
+        db_table = 'config_values'
         constraints = [
             models.UniqueConstraint(fields=['key', 'show_id'], name='unique_key_show'),
         ]

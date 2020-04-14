@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib import admin
 from django.core.validators import RegexValidator
-
+from django.db import models
 from .models import ConfigValue
 from django.core.exceptions import ValidationError
 from django.utils.translation import ugettext_lazy as _
@@ -10,9 +10,11 @@ from django.utils.translation import ugettext_lazy as _
 
 
 class ConfigValueForm(forms.ModelForm):
+    value = forms.CharField(widget=forms.Textarea(attrs={'class': 'ckeditor'}), label='')
+
     class Meta:
         model = ConfigValue
-        fields = '__all__'
+        fields = ['key', 'type','show_id', 'value', 'file']
 
     def clean(self):
         key = self.cleaned_data.get('key')
@@ -53,6 +55,9 @@ class ConfigValueForm(forms.ModelForm):
 
 class ConfigValueAdmin(admin.ModelAdmin):
     form = ConfigValueForm
+
+    class Media:
+        js = ('//cdn.ckeditor.com/4.14.0/standard/ckeditor.js',)
 
 
 admin.site.register(ConfigValue, ConfigValueAdmin)
