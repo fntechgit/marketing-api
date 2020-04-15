@@ -166,6 +166,10 @@ LOGGING = {
                 # exact format is not important, this is the minimum information
                 'format': '%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
             },
+            'file': {
+                # exact format is not important, this is the minimum information
+                'format': '%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
+            },
      },
     'handlers': {
         'console': {
@@ -174,6 +178,7 @@ LOGGING = {
         },
         'file': {
             'level': 'DEBUG',
+            'formatter': 'file',
             'class': 'logging.FileHandler',
             'filename':  os.path.join(BASE_DIR, "web.log"),
         },
@@ -195,13 +200,18 @@ LOGGING = {
             'level': 'DEBUG',
             'propagate': True,
         },
-        'transcoder': {
+        'oauth2': {
             'handlers': ['file', 'console'],
             'level': 'DEBUG',
             'propagate': True,
         },
         'cronjobs': {
             'handlers': ['file', 'console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+        'test': {
+            'handlers': ['console'],
             'level': 'DEBUG',
             'propagate': True,
         },
@@ -215,9 +225,9 @@ REST_FRAMEWORK = {
     #    'rest_framework.authentication.SessionAuthentication',
     #    'rest_framework.authentication.BasicAuthentication',
     #),
-    'DEFAULT_RENDERER_CLASSES': (
-        'rest_framework.renderers.JSONRenderer',
-    ),
+    #'DEFAULT_RENDERER_CLASSES': (
+    #    'rest_framework.renderers.JSONRenderer',
+    #),
     'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
     'DEFAULT_PERMISSION_CLASSES': [
         # default one
@@ -255,6 +265,17 @@ SWIFT_PROJECT_NAME = os.getenv("SWIFT_PROJECT_NAME")
 SWIFT_REGION_NAME = os.getenv("SWIFT_REGION_NAME")
 SWIFT_CONTAINER_NAME = os.getenv("SWIFT_CONTAINER_NAME")
 
+OAUTH2_IDP_BASE_URL = os.getenv('OAUTH2_IDP_BASE_URL')
+OAUTH2_CLIENT_ID = os.getenv('OAUTH2_CLIENT_ID')
+OAUTH2_CLIENT_SECRET = os.getenv('OAUTH2_CLIENT_SECRET')
+
+OAUTH2_ADD_SCOPE = os.getenv('OAUTH2_ADD_SCOPE')
+OAUTH2_UPDATE_SCOPE = os.getenv('OAUTH2_UPDATE_SCOPE')
+OAUTH2_DELETE_SCOPE = os.getenv('OAUTH2_DELETE_SCOPE')
+
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, "backend/media"),
+]
 
 # Import local settings
 try:

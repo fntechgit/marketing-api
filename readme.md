@@ -28,7 +28,12 @@ python manage.py createsuperuser
 
 
 # static files
-python manage.py  collectstatic
+
+see https://docs.djangoproject.com/en/3.0/howto/static-files/deployment
+
+````
+$ python manage.py  collectstatic
+````
 
 # locale
 

@@ -8,3 +8,4 @@ dist/
 .env
 *.mo
 *.log
+static/

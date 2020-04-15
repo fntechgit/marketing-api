@@ -10,7 +10,7 @@ class ConfigValue(TimeStampedModel):
     # unique per show
     key = models.CharField(max_length=128, validators=[
         RegexValidator(
-            regex=r'^[\d\w]*$',
+            regex=r'^[\d\w\.]*$',
             message=_('Key must be Alphanumeric'),
             code='invalid_key'
         ),
@@ -22,6 +22,7 @@ class ConfigValue(TimeStampedModel):
     show_id = models.IntegerField(default=0)
 
     class Meta:
+        app_label= 'api'
         db_table = 'config_values'
         constraints = [
             models.UniqueConstraint(fields=['key', 'show_id'], name='unique_key_show'),

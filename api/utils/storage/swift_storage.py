@@ -10,8 +10,8 @@ from keystoneauth1 import session
 from keystoneauth1.identity import v3
 from django.core.exceptions import ImproperlyConfigured
 import magic
-import mimetypes
 from datetime import datetime
+from ..setting import setting
 
 
 class SwiftFile(File):
@@ -35,19 +35,7 @@ class SwiftFile(File):
 
     file = property(_get_file, _set_file)
 
-from django.conf import settings
 
-
-def setting(name, default=None):
-    """
-    Helper function to get a Django setting by name. If setting doesn't exists
-    it will return a default.
-    :param name: Name of setting
-    :type name: str
-    :param default: Value if setting is unfound
-    :returns: Setting's value
-    """
-    return getattr(settings, name, default)
 
 # DEFAULT_FILE_STORAGE = '.api.utils.storage.SwiftStorage'
 # https://docs.djangoproject.com/en/3.0/howto/custom-file-storage/
