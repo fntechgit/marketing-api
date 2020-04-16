@@ -1,5 +1,5 @@
 from django.contrib.auth.models import AnonymousUser
-from ..utils import setting
+from ..utils import config
 from rest_framework import exceptions
 from rest_framework.authentication import get_authorization_header, BaseAuthentication
 import requests, logging, sys
@@ -7,6 +7,7 @@ from django.core.cache import cache
 
 
 class OAuth2Authentication(BaseAuthentication):
+
     def authenticate(self, request):
 
         auth = get_authorization_header(request).split()
@@ -42,21 +43,29 @@ class OAuth2Authentication(BaseAuthentication):
         if cached_token_info is None:
             try:
                 response = requests.post(
-                    '{base_url}/oauth2/token/introspection'.format(base_url=setting('OAUTH2_IDP_BASE_URL', None)),
-                    auth=(setting('OAUTH2_CLIENT_ID', None), setting('OAUTH2_CLIENT_SECRET', None),),
+                    '{base_url}/{endpoint}'.format
+                        (
+                        base_url=config('OAUTH2_IDP_BASE_URL', None),
+                        endpoint=config('OAUTH2_IDP_INTROSPECTION_ENDPOINT', None)
+                    ),
+                    auth=(config('OAUTH2_CLIENT_ID', None), config('OAUTH2_CLIENT_SECRET', None),),
                     params={'token': access_token},
-                    verify=setting('DEBUG', False)
+                    verify=config('DEBUG', False)
                 )
 
                 if response.status_code == requests.codes.ok:
                     cached_token_info = response.json()
                     cache.set(access_token, cached_token_info, timeout=cached_token_info['expires_in'])
                 else:
-                    logging.getLogger('oauth2').warning('http code {code} http content {content}'.format(code=response.status_code, content=response.content))
+                    logging.getLogger('oauth2').warning(
+                        'http code {code} http content {content}'.format(code=response.status_code,
+                                                                         content=response.content))
                     return None
             except requests.exceptions.RequestException as e:
                 logging.getLogger('oauth2').error(e)
+                return None
             except:
-                logging.getLogger('oauth2').error(sys.exc_info()[0])
+                logging.getLogger('oauth2').error(sys.exc_info())
+                return None
 
         return AnonymousUser, cached_token_info

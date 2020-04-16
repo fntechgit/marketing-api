@@ -1,2 +1,2 @@
 from .public import ConfigValueListAPIView, ConfigValueRetrieveAPIView
-from .private import ConfigValueCreateAPIView, ConfigValueDestroyAPIView, ConfigValueUpdateAPIView
+from .private import ConfigValueCreateAPIView, ConfigValueUpdateDestroyAPIView

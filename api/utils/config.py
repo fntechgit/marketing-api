@@ -1,7 +1,7 @@
 from django.conf import settings
 
 
-def setting(name, default=None):
+def config(name: str, default=None):
     """
     Helper function to get a Django setting by name. If setting doesn't exists
     it will return a default.

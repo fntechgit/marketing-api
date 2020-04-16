@@ -5,8 +5,13 @@ import logging
 
 
 def oauth2_scope_required(required_scope):
-    def _decorator(view_func):
-        def __decorator(view, *args, **kwargs):
+    """
+      Decorator to make a view only accept particular scopes:
+    """
+    def decorator(func):
+        @wraps(func)
+        def inner(view, *args, **kwargs):
+
             request = view.request
             token_info = request.auth
 
@@ -16,14 +21,12 @@ def oauth2_scope_required(required_scope):
             if 'scope' in token_info:
                 current_scope = token_info['scope']
 
-                logging.getLogger('oauth2')\
-                    .debug('current scope {current} required scope {required}'.
-                           format(current=current_scope, required=required_scope))
+                logging.getLogger('oauth2').debug('current scope {current} required scope {required}'.
+                                                  format(current=current_scope, required=required_scope))
                 # check scopes
                 if set(required_scope.split()).issubset(current_scope.split()):
-                    return view_func(view, *args, **kwargs)
+                    return func(view, *args, **kwargs)
 
             raise PermissionDenied(_("token scopes not present"))
-
-        return wraps(view_func)(__decorator)
-    return _decorator
+        return inner
+    return decorator

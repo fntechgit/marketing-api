@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django_filters',
+    'django_extensions',
     'api.apps.ApiConfig',
 ]
 
@@ -61,6 +62,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
 # https://docs.djangoproject.com/en/3.0/ref/settings/#std:setting-ROOT_URLCONF
 ROOT_URLCONF = 'backend.urls'
 
@@ -142,6 +144,14 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
 CORS_ORIGIN_ALLOW_ALL = True
+CORS_ALLOW_METHODS = (
+        'GET',
+        'POST',
+        'PUT',
+        'PATCH',
+        'DELETE',
+        'OPTIONS'
+)
 
 CACHES = {
     "default": {
@@ -177,13 +187,11 @@ LOGGING = {
             'formatter': 'console',
         },
         'file': {
-            'level': 'DEBUG',
             'formatter': 'file',
             'class': 'logging.FileHandler',
-            'filename':  os.path.join(BASE_DIR, "web.log"),
+            'filename':  os.path.join(BASE_DIR, "logs/api.log"),
         },
         'mail_admins': {
-            'level': 'ERROR',
             'class': 'django.utils.log.AdminEmailHandler',
             'include_html': True,
             'email_backend' : 'sendgrid_backend.SendgridBackend',
@@ -192,27 +200,27 @@ LOGGING = {
     'loggers': {
         'django': {
             'handlers': ['file'],
-            'level': 'DEBUG',
+            'level': os.getenv('DJANGO_LOG_LEVEL', 'DEBUG'),
             'propagate': True,
         },
         'api': {
             'handlers': ['file'],
-            'level': 'DEBUG',
+            'level': os.getenv('API_LOG_LEVEL', 'DEBUG'),
             'propagate': True,
         },
         'oauth2': {
             'handlers': ['file', 'console'],
-            'level': 'DEBUG',
+            'level': os.getenv('OAUTH2_LOG_LEVEL', 'DEBUG'),
             'propagate': True,
         },
         'cronjobs': {
             'handlers': ['file', 'console'],
-            'level': 'DEBUG',
+            'level': os.getenv('CRON_JOBS_LOG_LEVEL', 'DEBUG'),
             'propagate': True,
         },
         'test': {
             'handlers': ['console'],
-            'level': 'DEBUG',
+            'level': os.getenv('TEST_LOG_LEVEL', 'DEBUG'),
             'propagate': True,
         },
     },
@@ -225,9 +233,9 @@ REST_FRAMEWORK = {
     #    'rest_framework.authentication.SessionAuthentication',
     #    'rest_framework.authentication.BasicAuthentication',
     #),
-    #'DEFAULT_RENDERER_CLASSES': (
-    #    'rest_framework.renderers.JSONRenderer',
-    #),
+    'DEFAULT_RENDERER_CLASSES': (
+        'rest_framework.renderers.JSONRenderer',
+    ),
     'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
     'DEFAULT_PERMISSION_CLASSES': [
         # default one
@@ -266,12 +274,14 @@ SWIFT_REGION_NAME = os.getenv("SWIFT_REGION_NAME")
 SWIFT_CONTAINER_NAME = os.getenv("SWIFT_CONTAINER_NAME")
 
 OAUTH2_IDP_BASE_URL = os.getenv('OAUTH2_IDP_BASE_URL')
+OAUTH2_IDP_INTROSPECTION_ENDPOINT = os.getenv('OAUTH2_IDP_INTROSPECTION_ENDPOINT')
 OAUTH2_CLIENT_ID = os.getenv('OAUTH2_CLIENT_ID')
 OAUTH2_CLIENT_SECRET = os.getenv('OAUTH2_CLIENT_SECRET')
 
 OAUTH2_ADD_SCOPE = os.getenv('OAUTH2_ADD_SCOPE')
 OAUTH2_UPDATE_SCOPE = os.getenv('OAUTH2_UPDATE_SCOPE')
 OAUTH2_DELETE_SCOPE = os.getenv('OAUTH2_DELETE_SCOPE')
+
 
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, "backend/media"),

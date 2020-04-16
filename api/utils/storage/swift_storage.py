@@ -11,7 +11,7 @@ from keystoneauth1.identity import v3
 from django.core.exceptions import ImproperlyConfigured
 import magic
 from datetime import datetime
-from ..setting import setting
+from api.utils import config
 
 
 class SwiftFile(File):
@@ -42,18 +42,18 @@ class SwiftFile(File):
 @deconstructible
 class SwiftStorage(Storage):
     _swift_conn = None
-    _base_url =  setting('SWIFT_BASE_URL', None)
-    _auth_url = setting('SWIFT_AUTH_URL', None)
-    _application_credential_id = setting('SWIFT_APP_CRED_ID')
-    _application_credential_secret = setting('SWIFT_APP_CRED_SECRET')
-    _user_domain_name = setting('SWIFT_USER_DOMAIN_NAME', 'Default')
-    _project_domain_name = setting('SWIFT_PROJECT_DOMAIN_NAME', 'Default')
-    _project_id = setting('SWIFT_PROJECT_ID', None)
-    _project_name = setting('SWIFT_PROJECT_NAME', None)
-    _region_name = setting('SWIFT_REGION_NAME', None)
-    _container_name = setting('SWIFT_CONTAINER_NAME', None)
+    _base_url =  config('SWIFT_BASE_URL', None)
+    _auth_url = config('SWIFT_AUTH_URL', None)
+    _application_credential_id = config('SWIFT_APP_CRED_ID')
+    _application_credential_secret = config('SWIFT_APP_CRED_SECRET')
+    _user_domain_name = config('SWIFT_USER_DOMAIN_NAME', 'Default')
+    _project_domain_name = config('SWIFT_PROJECT_DOMAIN_NAME', 'Default')
+    _project_id = config('SWIFT_PROJECT_ID', None)
+    _project_name = config('SWIFT_PROJECT_NAME', None)
+    _region_name = config('SWIFT_REGION_NAME', None)
+    _container_name = config('SWIFT_CONTAINER_NAME', None)
     _os_options = {}
-    _gzip_content_types = setting('SWIFT_GZIP_CONTENT_TYPES', [])
+    _gzip_content_types = config('SWIFT_GZIP_CONTENT_TYPES', [])
 
     def __init__(self, **settings):
         # check if some of the settings provided as class attributes
