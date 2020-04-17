@@ -27,7 +27,7 @@ class ConfigValueForm(forms.ModelForm):
         # test key format
 
         val = RegexValidator(
-            regex=r'^[\d\w]*$',
+            regex=r'^[\d\w\.]*$',
             message=_('Key must be Alphanumeric'),
             code='invalid_key'
         )
