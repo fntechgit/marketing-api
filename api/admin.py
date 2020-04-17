@@ -9,13 +9,17 @@ from django.utils.translation import ugettext_lazy as _
 
 
 class ConfigValueForm(forms.ModelForm):
-    value = forms.CharField(widget=forms.Textarea(attrs={'class': 'ckeditor'}), label='')
+    value = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={'class': 'ckeditor'})
+    )
 
     class Meta:
         model = ConfigValue
         fields = ['key', 'type','show_id', 'value', 'file']
 
     def clean(self):
+
         key = self.cleaned_data.get('key')
         type = self.cleaned_data.get('type')
         value = self.cleaned_data.get('value')
@@ -48,6 +52,11 @@ class ConfigValueForm(forms.ModelForm):
 
         if file and type != 'FILE':
             raise ValidationError(_('You should remove the file first.'))
+
+        # enforce unique IDX
+        id = self.instance.id if not self.instance is None else 0
+        if ConfigValue.objects.filter(show_id=show_id).filter(key=key).exclude(id=id).count() > 0:
+            raise ValidationError(_('Already exits a combination of key/show id for another config value'))
 
         return self.cleaned_data
 

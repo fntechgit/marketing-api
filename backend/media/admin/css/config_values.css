@@ -1,3 +1,4 @@
-label.required{
-    display: none !important;
+.cke_chrome {
+    width: 86% !important;
+    float: right !important;
 }
