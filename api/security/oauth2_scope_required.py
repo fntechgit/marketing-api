@@ -23,8 +23,10 @@ def oauth2_scope_required(required_scope):
 
                 logging.getLogger('oauth2').debug('current scope {current} required scope {required}'.
                                                   format(current=current_scope, required=required_scope))
+                # check origins
                 # check scopes
-                if set(required_scope.split()).issubset(current_scope.split()):
+
+                if len(set.intersection(set(required_scope.split()), set(current_scope.split()))):
                     return func(view, *args, **kwargs)
 
             raise PermissionDenied(_("token scopes not present"))

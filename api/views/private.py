@@ -7,6 +7,7 @@ from rest_framework import mixins
 from ..models import ConfigValue
 from ..security import OAuth2Authentication, oauth2_scope_required
 from ..serializers import ConfigValueWriteSerializer
+from ..services import ConfigValuesService
 from ..utils import config
 import logging, sys
 
@@ -65,6 +66,20 @@ class ConfigValueUpdateDestroyAPIView(mixins.UpdateModelMixin,
         except ValidationError as e:
             logging.getLogger('api').warning(e)
             return Response(e.detail, status=status.HTTP_412_PRECONDITION_FAILED)
+        except:
+            logging.getLogger('api').error(sys.exc_info())
+            return Response('server error', status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class ConfigValueCloneAPIView(GenericAPIView):
+    authentication_classes = [OAuth2Authentication]
+
+    @oauth2_scope_required(required_scope=config('OAUTH2_CLONE_SCOPE'))
+    def post(self, request, show_id, to_show_id, *args, **kwargs):
+        try:
+            service = ConfigValuesService()
+            service.clone_from_to(show_id, to_show_id)
+            return Response('', status=status.HTTP_201_CREATED)
         except:
             logging.getLogger('api').error(sys.exc_info())
             return Response('server error', status=status.HTTP_500_INTERNAL_SERVER_ERROR)

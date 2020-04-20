@@ -15,6 +15,15 @@ class ConfigValueFilter(FilterSet):
         }
 
 
+class ConfigValueFilterWithoutShow(FilterSet):
+    class Meta:
+        model = ConfigValue
+        fields = {
+            'key' : ['contains'],
+            'type' : ['exact'],
+        }
+
+
 class ConfigValueListAPIView(ListAPIView):
     filter_backends = [DjangoFilterBackend, OrderingFilter]
     filterset_class = ConfigValueFilter
@@ -37,3 +46,17 @@ class ConfigValueRetrieveAPIView(RetrieveAPIView):
     def get_serializer_class(self):
         return ConfigValueReadSerializerList
 
+
+class ConfigValueAllListAPIView(ListAPIView):
+    filter_backends = [DjangoFilterBackend, OrderingFilter]
+    filterset_class = ConfigValueFilterWithoutShow
+    # ordering
+    ordering_fields = ['id', 'created', 'updated', 'key']
+    ordering = ['id']
+
+    def get_queryset(self):
+        show_id = self.kwargs['show_id']
+        return ConfigValue.objects.get_queryset().filter(show_id=show_id).order_by('id')
+
+    def get_serializer_class(self):
+        return ConfigValueReadSerializerList
