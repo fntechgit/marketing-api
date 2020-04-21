@@ -50,7 +50,7 @@ class ConfigValueUpdateDestroyAPIView(mixins.UpdateModelMixin,
     def put(self, request, *args, **kwargs):
         try:
             logging.getLogger('api').debug('calling ConfigValueCreateAPIView::put')
-            return self.update(request, *args, **kwargs)
+            return self.partial_update(request, *args, **kwargs)
         except ValidationError as e:
             logging.getLogger('api').warning(e)
             return Response(e.detail, status=status.HTTP_412_PRECONDITION_FAILED)

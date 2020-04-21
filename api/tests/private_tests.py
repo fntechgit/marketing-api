@@ -86,9 +86,9 @@ class PrivateTests(APITestCase):
         url = reverse('config-values-write:update_destroy',  kwargs={'pk': db_object.id})
 
         data = {
-            'key': 'key.1.update',
+            #'key': 'key.1.update',
             'value': '<p>update</p>',
-            'type': 'TEXTAREA',
+            #'type': 'TEXTAREA',
         }
 
         response = self.client.put('{url}?access_token={token}'.format(url=url, token=self.access_token), data,
@@ -97,7 +97,7 @@ class PrivateTests(APITestCase):
         json_response = json.loads(response.content)
         self.assertEqual(ConfigValue.objects.filter(id=json_response['id']).count(), 1)
         db_object = ConfigValue.objects.filter(id=json_response['id']).get()
-        self.assertEqual(db_object.key, 'key.1.update')
+        self.assertEqual(db_object.key, 'key.1')
         self.assertEqual(db_object.value, '<p>update</p>')
 
     def test_create_delete_textarea(self):
