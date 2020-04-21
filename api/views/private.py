@@ -74,6 +74,9 @@ class ConfigValueUpdateDestroyAPIView(mixins.UpdateModelMixin,
 class ConfigValueCloneAPIView(GenericAPIView):
     authentication_classes = [OAuth2Authentication]
 
+    def get_serializer_class(self):
+        return ConfigValueWriteSerializer
+
     @oauth2_scope_required(required_scope=config('OAUTH2_CLONE_SCOPE'))
     def post(self, request, show_id, to_show_id, *args, **kwargs):
         try:

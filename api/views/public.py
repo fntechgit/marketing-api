@@ -55,7 +55,7 @@ class ConfigValueAllListAPIView(ListAPIView):
     ordering = ['id']
 
     def get_queryset(self):
-        show_id = self.kwargs['show_id']
+        show_id = self.kwargs['show_id'] if 'show_id' in self.kwargs else 0
         return ConfigValue.objects.get_queryset().filter(show_id=show_id).order_by('id')
 
     def get_serializer_class(self):
