@@ -4,7 +4,8 @@ from ..models import ConfigValue
 from rest_framework import status
 import io
 from PIL import Image
-import requests, logging, sys,os
+import logging,os
+import json
 
 
 class PrivateTests(APITestCase):
@@ -22,7 +23,7 @@ class PrivateTests(APITestCase):
 
     def setUp(self):
         self.access_token = os.environ.get('ACCESS_TOKEN')
-        ConfigValue.objects.create(key='key.1', value='<p>test</p>', type='TEXTAREA', show_id=1)
+        ConfigValue.objects.create(key='key.11', value='<p>test</p>', type='TEXTAREA', show_id=1)
         ConfigValue.objects.create(key='key.2', value='<p>test2</p>', type='TEXTAREA', show_id=1)
         ConfigValue.objects.create(key='key.3', value='<p>test3</p>', type='TEXTAREA', show_id=1)
         ConfigValue.objects.create(key='key.4', value='<p>test</p>', type='TEXTAREA', show_id=2)
@@ -42,9 +43,10 @@ class PrivateTests(APITestCase):
 
         logging.getLogger('test').info('using access token {token}'.format(token=self.access_token))
         response = self.client.post('{url}?access_token={token}'.format(url=url, token= self.access_token), data, format='multipart')
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(ConfigValue.objects.count(), 1)
-        self.assertEqual(ConfigValue.objects.get().key, 'key.1')
+        json_response = json.loads(response.content)
+        self.assertEqual(ConfigValue.objects.filter(id=json_response['id']), 1)
+        db_object = ConfigValue.objects.filter(id=json_response['id']).get()
+        self.assertEqual(db_object.key, 'key.1')
 
     def test_create_without_value(self):
         url = reverse('config-values-write:add')
@@ -76,25 +78,27 @@ class PrivateTests(APITestCase):
         response = self.client.post('{url}?access_token={token}'.format(url=url, token=self.access_token), data,
                                     format='multipart')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(ConfigValue.objects.count(), 1)
-        db_object = ConfigValue.objects.get()
+        json_response = json.loads(response.content)
+        self.assertEqual(ConfigValue.objects.filter(id=json_response['id']).count(), 1)
+        db_object = ConfigValue.objects.filter(id=json_response['id']).get()
         self.assertEqual(db_object.key, 'key.1')
 
         url = reverse('config-values-write:update_destroy',  kwargs={'pk': db_object.id})
 
         data = {
-            'key': 'key.1',
+            'key': 'key.1.update',
+            'value': '<p>update</p>',
             'type': 'TEXTAREA',
-            'show_id': '1',
-            'value': '<p>update</p>'
         }
 
         response = self.client.put('{url}?access_token={token}'.format(url=url, token=self.access_token), data,
                                     format='multipart')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(ConfigValue.objects.count(), 1)
-        self.assertEqual(ConfigValue.objects.get().key, 'key.1')
-        self.assertEqual(ConfigValue.objects.get().value, '<p>update</p>')
+        json_response = json.loads(response.content)
+        self.assertEqual(ConfigValue.objects.filter(id=json_response['id']).count(), 1)
+        db_object = ConfigValue.objects.filter(id=json_response['id']).get()
+        self.assertEqual(db_object.key, 'key.1.update')
+        self.assertEqual(db_object.value, '<p>update</p>')
 
     def test_create_delete_textarea(self):
 
