@@ -8,7 +8,7 @@ class ConfigValuesService:
             res = cursor.execute("""INSERT INTO config_values (created,modified,`key`,type,value,file,show_id) 
                                  SELECT now(),now(),`key`,type,value,file,%s FROM config_values AS CV 
                                  WHERE CV.show_id = %s AND
-                                 NOT EXISTAS (
+                                 NOT EXISTS (
                                     SELECT 1 FROM config_values WHERE config_values.`key`= CV.`key` 
                                     AND config_values.show_id = %s
                                  ); 
