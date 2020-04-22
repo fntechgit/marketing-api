@@ -1,6 +1,6 @@
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import CreateAPIView, GenericAPIView
-from rest_framework.parsers import MultiPartParser
+from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework import mixins
@@ -36,7 +36,7 @@ class ConfigValueCreateAPIView(CreateAPIView):
 class ConfigValueUpdateDestroyAPIView(mixins.UpdateModelMixin,
                                       mixins.DestroyModelMixin,
                                       GenericAPIView):
-    parser_classes = (MultiPartParser,)
+    parser_classes = (MultiPartParser, JsonParser)
     authentication_classes = [OAuth2Authentication]
     queryset = ConfigValue.objects.all()
 
