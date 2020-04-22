@@ -36,7 +36,7 @@ class ConfigValueCreateAPIView(CreateAPIView):
 class ConfigValueUpdateDestroyAPIView(mixins.UpdateModelMixin,
                                       mixins.DestroyModelMixin,
                                       GenericAPIView):
-    parser_classes = (MultiPartParser, JsonParser)
+    parser_classes = (MultiPartParser, JSONParser)
     authentication_classes = [OAuth2Authentication]
     queryset = ConfigValue.objects.all()
 
