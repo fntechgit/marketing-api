@@ -22,8 +22,9 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv("SECRET_KEY")
 
+ENV = os.getenv("ENV")
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False if ENV == 'production' else True
 
 ALLOWED_HOSTS = ['*']
 
@@ -33,8 +34,11 @@ EMAIL_BACKEND = "sendgrid_backend.SendgridBackend"
 
 FROM_EMAIL = os.getenv("FROM_EMAIL")
 # https://docs.djangoproject.com/en/3.0/howto/error-reporting/
-ADMINS = os.getenv('ADMINS')
-
+# string should have this format
+# name1,email1|name2,email2|....|nameN,emailN
+ADMINS = [tuple(x.split(',')) for x in os.getenv('ADMINS', []).split('|')]
+# admin from email
+SERVER_EMAIL = os.getenv('SERVER_EMAIL')
 # Application definition
 
 INSTALLED_APPS = [
@@ -171,6 +175,14 @@ CACHES = {
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
+    'filters': {
+        'require_debug_false': {
+            '()': 'django.utils.log.RequireDebugFalse',
+        },
+        'require_debug_true': {
+            '()': 'django.utils.log.RequireDebugTrue',
+        },
+    },
     'formatters': {
             'console': {
                 # exact format is not important, this is the minimum information
@@ -194,27 +206,29 @@ LOGGING = {
         'mail_admins': {
             'class': 'django.utils.log.AdminEmailHandler',
             'include_html': True,
-            'email_backend' : 'sendgrid_backend.SendgridBackend',
+            'email_backend': 'sendgrid_backend.SendgridBackend',
+            'filters': ['require_debug_false'],
+            'level': 'ERROR',
         }
     },
     'loggers': {
         'django': {
-            'handlers': ['file'],
+            'handlers': ['file' 'mail_admins'],
             'level': os.getenv('DJANGO_LOG_LEVEL', 'DEBUG'),
             'propagate': True,
         },
         'api': {
-            'handlers': ['file'],
+            'handlers': ['file', 'mail_admins'],
             'level': os.getenv('API_LOG_LEVEL', 'DEBUG'),
             'propagate': True,
         },
         'oauth2': {
-            'handlers': ['file', 'console'],
+            'handlers': ['file', 'console', 'mail_admins'],
             'level': os.getenv('OAUTH2_LOG_LEVEL', 'DEBUG'),
             'propagate': True,
         },
         'cronjobs': {
-            'handlers': ['file', 'console'],
+            'handlers': ['file', 'console', 'mail_admins'],
             'level': os.getenv('CRON_JOBS_LOG_LEVEL', 'DEBUG'),
             'propagate': True,
         },
