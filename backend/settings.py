@@ -184,24 +184,25 @@ LOGGING = {
         },
     },
     'formatters': {
-            'console': {
-                # exact format is not important, this is the minimum information
-                'format': '%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
-            },
-            'file': {
-                # exact format is not important, this is the minimum information
-                'format': '%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
-            },
-     },
+        'console': {
+            # exact format is not important, this is the minimum information
+            'format': '%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
+        },
+        'file': {
+            # exact format is not important, this is the minimum information
+            'format': '%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
+        },
+    },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
             'formatter': 'console',
+            'filters': ['require_debug_true'],
         },
         'file': {
             'formatter': 'file',
             'class': 'logging.FileHandler',
-            'filename':  os.path.join(BASE_DIR, "logs/api.log"),
+            'filename': os.path.join(BASE_DIR, "logs/api.log"),
         },
         'mail_admins': {
             'class': 'django.utils.log.AdminEmailHandler',
@@ -213,7 +214,7 @@ LOGGING = {
     },
     'loggers': {
         'django': {
-            'handlers': ['file','mail_admins'],
+            'handlers': ['file', 'mail_admins'],
             'level': os.getenv('DJANGO_LOG_LEVEL', 'DEBUG'),
             'propagate': True,
         },
@@ -222,13 +223,18 @@ LOGGING = {
             'level': os.getenv('API_LOG_LEVEL', 'DEBUG'),
             'propagate': True,
         },
+        'serializers': {
+            'handlers': ['file', 'mail_admins'],
+            'level': os.getenv('API_LOG_LEVEL', 'DEBUG'),
+            'propagate': True,
+        },
         'oauth2': {
-            'handlers': ['file', 'console', 'mail_admins'],
+            'handlers': ['file', 'console'],
             'level': os.getenv('OAUTH2_LOG_LEVEL', 'DEBUG'),
             'propagate': True,
         },
-        'cronjobs': {
-            'handlers': ['file', 'console', 'mail_admins'],
+        'jobs': {
+            'handlers': ['file', 'console'],
             'level': os.getenv('CRON_JOBS_LOG_LEVEL', 'DEBUG'),
             'propagate': True,
         },
