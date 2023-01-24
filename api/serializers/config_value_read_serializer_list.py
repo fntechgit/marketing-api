@@ -25,5 +25,6 @@ class ConfigValueReadSerializerList(serializers.ModelSerializer):
             'value',
             'type',
             'file',
-            'show_id'
+            'show_id',
+            'selection_plan_id',
         )

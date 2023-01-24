@@ -12,7 +12,9 @@ class ConfigValueWriteSerializer(serializers.ModelSerializer):
         type = data['type'] if 'type' in data else None
         file = data['file'] if 'file' in data else None
         show_id = data['show_id'] if 'show_id' in data else None
+        selection_plan_id = data['selection_plan_id'] if 'selection_plan_id' in data else None
         key  = data['key'] if 'key' in data else None
+
         is_update = self.instance is not None
 
         # only mandatory on add
@@ -36,8 +38,11 @@ class ConfigValueWriteSerializer(serializers.ModelSerializer):
         if file and type is not None and type != 'FILE' and not is_update:
             raise ValidationError(_('You should remove the file first.'))
 
-            # enforce unique IDX
+        # enforce unique IDX
         query = ConfigValue.objects.filter(show_id=show_id).filter(key=key)
+        if selection_plan_id :
+            query = query.filter(selection_plan_id=selection_plan_id)
+
         if is_update:
             query = query.filter(~Q(id = self.instance.id))
 
@@ -56,5 +61,6 @@ class ConfigValueWriteSerializer(serializers.ModelSerializer):
             'value',
             'type',
             'file',
-            'show_id'
+            'show_id',
+            'selection_plan_id',
         )

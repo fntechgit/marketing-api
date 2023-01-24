@@ -16,7 +16,7 @@ class ConfigValueForm(forms.ModelForm):
 
     class Meta:
         model = ConfigValue
-        fields = ['key', 'type','show_id', 'value', 'file']
+        fields = ['key', 'type','show_id','selection_plan_id', 'value', 'file']
 
     def clean(self):
 
@@ -25,7 +25,7 @@ class ConfigValueForm(forms.ModelForm):
         value = self.cleaned_data.get('value')
         file = self.cleaned_data.get('file')
         show_id = self.cleaned_data.get('show_id')
-
+        selection_plan_id = self.cleaned_data['selection_plan_id'] if 'selection_plan_id' in self.cleaned_data else None
         if not key:
             raise ValidationError(_('Key is not set.'))
         # test key format
@@ -55,8 +55,11 @@ class ConfigValueForm(forms.ModelForm):
 
         # enforce unique IDX
         id = self.instance.id if not self.instance is None else 0
-        if ConfigValue.objects.filter(show_id=show_id).filter(key=key).exclude(id=id).count() > 0:
-            raise ValidationError(_('Already exits a combination of key/show id for another config value'))
+        query_set = ConfigValue.objects.filter(show_id=show_id).filter(key=key).exclude(id=id)
+        if selection_plan_id:
+            query_set = query_set.filter(selection_plan_id=selection_plan_id)
+        if query_set.count() > 0:
+            raise ValidationError(_('Already exits a combination of key/( show id | selection plan ) for another config value'))
 
         return self.cleaned_data
 

@@ -20,10 +20,11 @@ class ConfigValue(TimeStampedModel):
     value = models.TextField(blank=True, null=True)
     file = models.FileField(blank=True, null=True, max_length=255)
     show_id = models.IntegerField(default=0)
+    selection_plan_id = models.IntegerField(default=0)
 
     class Meta:
         app_label= 'api'
         db_table = 'config_values'
         constraints = [
-            models.UniqueConstraint(fields=['key', 'show_id'], name='unique_key_show'),
+            models.UniqueConstraint(fields=['key', 'show_id', 'selection_plan_id'], name='unique_key_show_selection_plan'),
         ]
