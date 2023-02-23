@@ -29,9 +29,6 @@ class ConfigValueWriteSerializer(serializers.ModelSerializer):
         if not show_id and not is_update:
             raise ValidationError(_('Show Id is not set.'))
 
-        if not value and type is not None and type != 'FILE' and not is_update:
-            raise ValidationError(_('Value is not set.'))
-
         if not file and type is not None and type == 'FILE' and not is_update:
             raise ValidationError(_('File is not set.'))
 
