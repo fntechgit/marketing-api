@@ -92,14 +92,25 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/3.0/ref/settings/#databases
 
+
+DB_OPTIONS = {
+    'charset': os.getenv('DB_CHARSET', 'utf8mb4'),
+}
+
+if os.getenv('DB_SSL_CA_CERT',''):
+    DB_OPTIONS['ssl'] = {
+        'ca' : os.getenv('DB_SSL_CA_CERT','')
+    }
+
 DATABASES = {
     'default': {
         'ENGINE': os.getenv("DB_ENGINE"),
-        'NAME':os.getenv("DB_NAME"),
+        'NAME': os.getenv("DB_NAME"),
         'USER': os.getenv("DB_USER"),
         'PASSWORD': os.getenv("DB_PASSWORD"),
-        'HOST':  os.getenv("DB_HOST"),
-        'PORT':  os.getenv("DB_PORT"),
+        'HOST': os.getenv("DB_HOST"),
+        'PORT': os.getenv("DB_PORT"),
+        'OPTIONS': DB_OPTIONS,
     }
 }
 
