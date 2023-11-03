@@ -5,8 +5,8 @@ class ConfigValuesService:
 
     def clone_from_to(self, from_show_id:int, to_show_id:int):
         with connection.cursor() as cursor:
-            res = cursor.execute("""INSERT INTO config_values (created,modified,`key`,type,value,file,show_id) 
-                                 SELECT now(),now(),`key`,type,value,file,%s FROM config_values AS CV 
+            res = cursor.execute("""INSERT INTO config_values (created,modified,`key`,type,value,file,show_id,selection_plan_id) 
+                                 SELECT now(),now(),`key`,type,value,file,%s,selection_plan_id FROM config_values AS CV 
                                  WHERE CV.show_id = %s AND
                                  NOT EXISTS (
                                     SELECT 1 FROM config_values WHERE config_values.`key`= CV.`key` 
