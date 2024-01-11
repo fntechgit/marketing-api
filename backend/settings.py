@@ -11,10 +11,25 @@ https://docs.djangoproject.com/en/3.0/ref/settings/
 """
 
 import os
+from django.utils.translation import ugettext_lazy as _
+from dotenv import load_dotenv
+import sys
+
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+CURRENT_PATH = os.path.dirname(os.path.abspath(__file__))
+env = os.getenv('ENV')
+
+if env == 'test':
+    filename = '.env'
+    if env:
+        filename = '{filename}.{env}'.format(filename=filename, env=env)
+
+    ENV_FILE = os.path.join(CURRENT_PATH, filename)
+    load_dotenv(ENV_FILE)
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'backend.settings')
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/3.0/howto/deployment/checklist/
