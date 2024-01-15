@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError
 from django.utils.translation import ugettext_lazy as _
 
 # custom models
+from .utils.validation import HexColorValidator
 
 
 class ConfigValueForm(forms.ModelForm):
@@ -52,6 +53,9 @@ class ConfigValueForm(forms.ModelForm):
 
         if file and type != 'FILE':
             raise ValidationError(_('You should remove the file first.'))
+
+        if type == 'HEX_COLOR' and not HexColorValidator.is_valid(value):
+            raise ValidationError(_('Invalid hex color.'))
 
         # enforce unique IDX
         id = self.instance.id if not self.instance is None else 0
