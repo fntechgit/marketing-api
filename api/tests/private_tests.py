@@ -126,6 +126,57 @@ class PrivateTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertEqual(ConfigValue.objects.count(), 0)
 
+    def test_create_update_hexcolor(self):
+        url = reverse('config-values-write:add')
+
+        data = {
+            'key': 'key.1',
+            'type': 'HEX_COLOR',
+            'show_id': '1',
+            'value': '#c4c4c4'
+        }
+
+        logging.getLogger('test').info('using access token {token}'.format(token=self.access_token))
+
+        response = self.client.post('{url}?access_token={token}'.format(url=url, token=self.access_token), data,
+                                    format='multipart')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        json_response = json.loads(response.content)
+        self.assertEqual(ConfigValue.objects.filter(id=json_response['id']).count(), 1)
+        db_object = ConfigValue.objects.filter(id=json_response['id']).get()
+        self.assertEqual(db_object.key, 'key.1')
+
+        url = reverse('config-values-write:update_destroy', kwargs={'pk': db_object.id})
+
+        data = {
+            'value': '#050505',
+        }
+
+        response = self.client.put('{url}?access_token={token}'.format(url=url, token=self.access_token), data,
+                                   format='multipart')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        json_response = json.loads(response.content)
+        self.assertEqual(ConfigValue.objects.filter(id=json_response['id']).count(), 1)
+        db_object = ConfigValue.objects.filter(id=json_response['id']).get()
+        self.assertEqual(db_object.key, 'key.1')
+        self.assertEqual(db_object.value, '#050505')
+
+    def test_create_invalid_hexcolor(self):
+        url = reverse('config-values-write:add')
+
+        data = {
+            'key': 'key.1',
+            'type': 'HEX_COLOR',
+            'show_id': '1',
+            'value': '#c4c4c4c4c4'
+        }
+
+        logging.getLogger('test').info('using access token {token}'.format(token=self.access_token))
+
+        response = self.client.post('{url}?access_token={token}'.format(url=url, token=self.access_token), data,
+                                    format='multipart')
+        self.assertEqual(response.status_code, status.HTTP_412_PRECONDITION_FAILED)
+
     def test_create_clone(self):
         url = reverse('config-values-write:clone',  kwargs={'show_id': 1, 'to_show_id': 3})
 

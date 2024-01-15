@@ -6,7 +6,7 @@ from django.utils.translation import ugettext_lazy as _
 
 class ConfigValue(TimeStampedModel):
 
-    ConfigType = models.TextChoices('ConfigType', 'TEXT TEXTAREA FILE')
+    ConfigType = models.TextChoices('ConfigType', 'TEXT TEXTAREA FILE HEX_COLOR')
     # unique per show
     key = models.CharField(max_length=128, validators=[
         RegexValidator(
