@@ -15,7 +15,7 @@ import traceback
 
 class ConfigValueCreateAPIView(CreateAPIView):
     authentication_classes = [OAuth2Authentication]
-    parser_classes = (MultiPartParser,)
+    parser_classes = (MultiPartParser, JSONParser)
     queryset = ConfigValue.objects.all()
 
     def get_serializer_class(self):
