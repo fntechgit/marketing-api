@@ -1,10 +1,7 @@
-from django.core.files.storage import Storage
 from io import BytesIO, UnsupportedOperation
 from shutil import copyfileobj
 import gzip
 from tempfile import SpooledTemporaryFile
-from django.utils.deconstruct import deconstructible
-from django.core.files.base import File
 import swiftclient
 from keystoneauth1 import session
 from keystoneauth1.identity import v3
@@ -12,71 +9,45 @@ from django.core.exceptions import ImproperlyConfigured
 import magic
 from datetime import datetime
 from api.utils import config
+from api.utils.storage.base import BaseCloudStorage, BaseCloudFile
 
 
-class SwiftFile(File):
+class SwiftFile(BaseCloudFile):
 
-    def __init__(self, name, storage):
-        self.name = name
-        self._storage = storage
-        self._file = None
-
-    def _get_file(self):
+   def _get_file(self):
         if self._file is None:
             self._file = SpooledTemporaryFile()
-            (headers, content) = self._storage.download(self.name)
+            headers, content = self._storage.download(self.name)
             with BytesIO(content) as file_content:
                 copyfileobj(file_content, self._file)
             self._file.seek(0)
         return self._file
 
-    def _set_file(self, value):
-        self._file = value
 
-    file = property(_get_file, _set_file)
-
-
-
-# DEFAULT_FILE_STORAGE = '.api.utils.storage.SwiftStorage'
-# https://docs.djangoproject.com/en/3.0/howto/custom-file-storage/
-@deconstructible
-class SwiftStorage(Storage):
+class SwiftStorage(BaseCloudStorage):
     _swift_conn = None
-    _base_url =  config('SWIFT_BASE_URL', None)
-    _auth_url = config('SWIFT_AUTH_URL', None)
-    _application_credential_id = config('SWIFT_APP_CRED_ID')
-    _application_credential_secret = config('SWIFT_APP_CRED_SECRET')
-    _user_domain_name = config('SWIFT_USER_DOMAIN_NAME', 'Default')
-    _project_domain_name = config('SWIFT_PROJECT_DOMAIN_NAME', 'Default')
-    _project_id = config('SWIFT_PROJECT_ID', None)
-    _project_name = config('SWIFT_PROJECT_NAME', None)
-    _region_name = config('SWIFT_REGION_NAME', None)
-    _container_name = config('SWIFT_CONTAINER_NAME', None)
+    _base_url =  config('STORAGES_CONFIG.SWIFT.BASE_URL', None)
+    _auth_url = config('STORAGES_CONFIG.SWIFT.AUTH_URL', None)
+    _application_credential_id = config('STORAGES_CONFIG.SWIFT.APP_CRED_ID')
+    _application_credential_secret = config('STORAGES_CONFIG.SWIFT.APP_CRED_SECRET')
+    _user_domain_name = config('STORAGES_CONFIG.SWIFT.USER_DOMAIN_NAME', 'Default')
+    _project_domain_name = config('STORAGES_CONFIG.SWIFT.PROJECT_DOMAIN_NAME', 'Default')
+    _project_id = config('STORAGES_CONFIG.SWIFT.PROJECT_ID', None)
+    _project_name = config('STORAGES_CONFIG.SWIFT.PROJECT_NAME', None)
+    _region_name = config('STORAGES_CONFIG.SWIFT.REGION_NAME', None)
+    _container_name = config('STORAGES_CONFIG.SWIFT.CONTAINER_NAME', None)
     _os_options = {}
-    _gzip_content_types = config('SWIFT_GZIP_CONTENT_TYPES', [])
+    _gzip_content_types = config('STORAGES_CONFIG.SWIFT.GZIP_CONTENT_TYPES', [])
 
     def __init__(self, **settings):
-        # check if some of the settings provided as class attributes
-        # should be overwritten
-        for name, value in settings.items():
-            if hasattr(self, name):
-                setattr(self, name, value)
-
-        self.last_headers_name = None
-        self.last_headers_value = None
-
-        self._os_options = {
-            'user_domain_name': self._user_domain_name,
-            'project_domain_name': self._project_domain_name,
-            'project_id': self._project_id,
-            'project_name': self._project_name,
-            'region_name': self._region_name,
-        }
-
-        self.swift_conn
+        super().__init__(**settings)
+        _ = self.swift_conn
 
     @property
     def swift_conn(self):
+        return self._get_client()
+
+    def _get_client(self):
         """Get swift connection wrapper"""
         if not self._swift_conn:
             ac = v3.ApplicationCredential(
