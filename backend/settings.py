@@ -362,6 +362,15 @@ STATICFILES_DIRS = [
     os.path.join(BASE_DIR, "backend/media"),
 ]
 
+DEV_EMAIL = os.getenv('DEV_EMAIL')
+
+from backend.env_var_eval import env_bool
+OTEL_INSTRUMENTATION_ENABLED = env_bool('OTEL_INSTRUMENTATION_ENABLED', True)
+
+if OTEL_INSTRUMENTATION_ENABLED:
+    from .otel_instrumentation import DjangoTelemetry
+    DjangoTelemetry.setup(ENV)
+
 # Import local settings
 try:
     from .settings_local import *

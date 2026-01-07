@@ -66,3 +66,12 @@ uritemplate==4.2.0
 urllib3==2.5.0
 Werkzeug==3.1.4
 wrapt==2.0.1
+
+#open-telemetry integration
+opentelemetry-distro==0.48b0
+opentelemetry-sdk==1.27.0
+opentelemetry-exporter-otlp==1.27.0
+opentelemetry-instrumentation-django==0.48b0
+opentelemetry-instrumentation-requests==0.48b0
+opentelemetry-instrumentation-mysqlclient==0.48b0
+opentelemetry-instrumentation-redis==0.48b0
