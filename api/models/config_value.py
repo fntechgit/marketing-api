@@ -1,7 +1,8 @@
+from django.core.files.storage import default_storage
 from django.core.validators import RegexValidator
 from django.db import models
 from model_utils.models import TimeStampedModel
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 
 class ConfigValue(TimeStampedModel):

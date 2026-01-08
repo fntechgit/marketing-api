@@ -11,7 +11,7 @@ https://docs.djangoproject.com/en/3.0/ref/settings/
 """
 
 import os
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 from dotenv import load_dotenv
 import sys
 
@@ -20,6 +20,9 @@ import sys
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 CURRENT_PATH = os.path.dirname(os.path.abspath(__file__))
+
+load_dotenv()
+
 env = os.getenv('ENV')
 
 if env == 'test':
@@ -51,7 +54,7 @@ FROM_EMAIL = os.getenv("FROM_EMAIL")
 # https://docs.djangoproject.com/en/3.0/howto/error-reporting/
 # string should have this format
 # name1,email1|name2,email2|....|nameN,emailN
-ADMINS = [tuple(x.split(',')) for x in os.getenv('ADMINS', []).split('|')]
+ADMINS = [tuple(x.split(',')) for x in os.getenv('ADMINS', '').split('|')]
 # admin from email
 SERVER_EMAIL = os.getenv('SERVER_EMAIL')
 # Application definition
@@ -312,17 +315,37 @@ LOCALE_PATHS = [
     os.path.join(BASE_DIR, "api/locale")
 ]
 
-DEFAULT_FILE_STORAGE = 'api.utils.storage.SwiftStorage'
+STORAGES_CONFIG = {
+    'SWIFT': {
+        'BASE_URL': os.getenv("SWIFT_BASE_URL"),
+        'AUTH_URL': os.getenv("SWIFT_AUTH_URL"),
+        'APP_CRED_ID': os.getenv("SWIFT_APP_CRED_ID"),
+        'APP_CRED_SECRET': os.getenv("SWIFT_APP_CRED_SECRET"),
+        'PROJECT_ID': os.getenv("SWIFT_PROJECT_ID"),
+        'PROJECT_NAME': os.getenv("SWIFT_PROJECT_NAME"),
+        'REGION_NAME': os.getenv("SWIFT_REGION_NAME"),
+        'CONTAINER_NAME': os.getenv("SWIFT_CONTAINER_NAME")
+    },
+    'S3': {
+        'ENDPOINT_URL': os.getenv("AWS_S3_ENDPOINT_URL"),
+        'ACCESS_KEY_ID': os.getenv("AWS_ACCESS_KEY_ID"),
+        'SECRET_ACCESS_KEY': os.getenv("AWS_SECRET_ACCESS_KEY"),
+        'STORAGE_BUCKET_NAME': os.getenv("AWS_STORAGE_BUCKET_NAME"),
+        'REGION_NAME': os.getenv("AWS_S3_REGION_NAME"),
+        'CUSTOM_DOMAIN': os.getenv("AWS_S3_CUSTOM_DOMAIN"),
+        'DEFAULT_ACL': os.getenv("AWS_DEFAULT_ACL", "private"),
+        'GZIP_CONTENT_TYPES': os.getenv("S3_GZIP_CONTENT_TYPES", ['text/css','application/javascript','application/json'])
+    }
+}
 
-# SWIFT
-SWIFT_BASE_URL = os.getenv("SWIFT_BASE_URL")
-SWIFT_AUTH_URL = os.getenv("SWIFT_AUTH_URL")
-SWIFT_APP_CRED_ID = os.getenv("SWIFT_APP_CRED_ID")
-SWIFT_APP_CRED_SECRET = os.getenv("SWIFT_APP_CRED_SECRET")
-SWIFT_PROJECT_ID = os.getenv("SWIFT_PROJECT_ID")
-SWIFT_PROJECT_NAME = os.getenv("SWIFT_PROJECT_NAME")
-SWIFT_REGION_NAME = os.getenv("SWIFT_REGION_NAME")
-SWIFT_CONTAINER_NAME = os.getenv("SWIFT_CONTAINER_NAME")
+STORAGES = {
+    "default": {
+        "BACKEND": os.getenv("DEFAULT_FILE_STORAGE", 'api.utils.storage.s3.S3Storage'),
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
 
 OAUTH2_IDP_BASE_URL = os.getenv('OAUTH2_IDP_BASE_URL')
 OAUTH2_IDP_INTROSPECTION_ENDPOINT = os.getenv('OAUTH2_IDP_INTROSPECTION_ENDPOINT')

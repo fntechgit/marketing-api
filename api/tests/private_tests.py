@@ -4,13 +4,11 @@ from ..models import ConfigValue
 from rest_framework import status
 import io
 from PIL import Image
-import logging,os
+import os
 import json
 
 
 class PrivateTests(APITestCase):
-
-    access_token = None
 
     @staticmethod
     def generate_photo_file():
@@ -22,7 +20,7 @@ class PrivateTests(APITestCase):
         return file
 
     def setUp(self):
-        self.access_token = os.environ.get('ACCESS_TOKEN')
+        self.access_token = os.environ.get('ACCESS_TOKEN', 'TEST')
         ConfigValue.objects.create(key='key.11', value='<p>test</p>', type='TEXTAREA', show_id=1)
         ConfigValue.objects.create(key='key.2', value='<p>test2</p>', type='TEXTAREA', show_id=1)
         ConfigValue.objects.create(key='key.3', value='<p>test3</p>', type='TEXTAREA', show_id=1)
@@ -41,10 +39,9 @@ class PrivateTests(APITestCase):
             'show_id': '1'
         }
 
-        logging.getLogger('test').info('using access token {token}'.format(token=self.access_token))
-        response = self.client.post('{url}?access_token={token}'.format(url=url, token= self.access_token), data, format='multipart')
+        response = self.client.post(url, data, format='multipart')
         json_response = json.loads(response.content)
-        self.assertEqual(ConfigValue.objects.filter(id=json_response['id']), 1)
+        self.assertEqual(1, ConfigValue.objects.filter(id=json_response['id']).count())
         db_object = ConfigValue.objects.filter(id=json_response['id']).get()
         self.assertEqual(db_object.key, 'key.1')
 
@@ -57,10 +54,9 @@ class PrivateTests(APITestCase):
             'show_id': '1'
         }
 
-        logging.getLogger('test').info('using access token {token}'.format(token=self.access_token))
-        response = self.client.post('{url}?access_token={token}'.format(url=url, token=self.access_token), data,
-                                    format='multipart')
-        self.assertEqual(response.status_code, status.HTTP_412_PRECONDITION_FAILED)
+        response = self.client.post(url, data, format='multipart')
+
+        self.assertEqual(status.HTTP_412_PRECONDITION_FAILED, response.status_code)
 
     def test_create_update_textarea(self):
 
@@ -73,10 +69,7 @@ class PrivateTests(APITestCase):
             'value': '<p>this is a test</p>'
         }
 
-        logging.getLogger('test').info('using access token {token}'.format(token=self.access_token))
-
-        response = self.client.post('{url}?access_token={token}'.format(url=url, token=self.access_token), data,
-                                    format='multipart')
+        response = self.client.post(url, data, format='multipart')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         json_response = json.loads(response.content)
         self.assertEqual(ConfigValue.objects.filter(id=json_response['id']).count(), 1)
@@ -91,8 +84,7 @@ class PrivateTests(APITestCase):
             #'type': 'TEXTAREA',
         }
 
-        response = self.client.put('{url}?access_token={token}'.format(url=url, token=self.access_token), data,
-                                    format='multipart')
+        response = self.client.put(url, data, format='multipart')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         json_response = json.loads(response.content)
         self.assertEqual(ConfigValue.objects.filter(id=json_response['id']).count(), 1)
@@ -111,20 +103,19 @@ class PrivateTests(APITestCase):
             'value': '<p>this is a test</p>'
         }
 
-        logging.getLogger('test').info('using access token {token}'.format(token=self.access_token))
+        current_qty = ConfigValue.objects.count()
 
-        response = self.client.post('{url}?access_token={token}'.format(url=url, token=self.access_token), data,
-                                    format='multipart')
+        response = self.client.post(url, data, format='multipart')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(ConfigValue.objects.count(), 1)
-        db_object = ConfigValue.objects.get()
+        self.assertEqual(current_qty + 1, ConfigValue.objects.count())
+        db_object = ConfigValue.objects.last()
         self.assertEqual(db_object.key, 'key.1')
 
         url = reverse('config-values-write:update_destroy', kwargs={'pk': db_object.id})
 
-        response = self.client.delete('{url}?access_token={token}'.format(url=url, token=self.access_token))
+        response = self.client.delete(url)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertEqual(ConfigValue.objects.count(), 0)
+        self.assertEqual(current_qty, ConfigValue.objects.count())
 
     def test_create_update_hexcolor(self):
         url = reverse('config-values-write:add')
@@ -136,10 +127,7 @@ class PrivateTests(APITestCase):
             'value': '#c4c4c4'
         }
 
-        logging.getLogger('test').info('using access token {token}'.format(token=self.access_token))
-
-        response = self.client.post('{url}?access_token={token}'.format(url=url, token=self.access_token), data,
-                                    format='multipart')
+        response = self.client.post(url, data, format='multipart')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         json_response = json.loads(response.content)
         self.assertEqual(ConfigValue.objects.filter(id=json_response['id']).count(), 1)
@@ -152,8 +140,7 @@ class PrivateTests(APITestCase):
             'value': '#050505',
         }
 
-        response = self.client.put('{url}?access_token={token}'.format(url=url, token=self.access_token), data,
-                                   format='multipart')
+        response = self.client.put(url, data, format='multipart')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         json_response = json.loads(response.content)
         self.assertEqual(ConfigValue.objects.filter(id=json_response['id']).count(), 1)
@@ -171,16 +158,12 @@ class PrivateTests(APITestCase):
             'value': '#c4c4c4c4c4'
         }
 
-        logging.getLogger('test').info('using access token {token}'.format(token=self.access_token))
-
-        response = self.client.post('{url}?access_token={token}'.format(url=url, token=self.access_token), data,
-                                    format='multipart')
+        response = self.client.post(url, data, format='multipart')
         self.assertEqual(response.status_code, status.HTTP_412_PRECONDITION_FAILED)
 
     def test_create_clone(self):
         url = reverse('config-values-write:clone',  kwargs={'show_id': 1, 'to_show_id': 3})
 
-        logging.getLogger('test').info('using access token {token}'.format(token=self.access_token))
-        response = self.client.post('{url}?access_token={token}'.format(url=url, token=self.access_token), )
+        response = self.client.post(url)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(ConfigValue.objects.filter(show_id=3).count() > 0, True)

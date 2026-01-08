@@ -10,4 +10,11 @@ def config(name: str, default=None):
     :param default: Value if setting is unfound
     :returns: Setting's value
     """
-    return getattr(settings, name, default)
+    vars = name.split('.')
+    entry = None
+    for v in vars:
+        entry = getattr(settings, v, default) if entry is None else (entry[v] if v in entry else None)
+
+    entry = default if entry is None else entry
+
+    return entry

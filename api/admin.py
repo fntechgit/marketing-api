@@ -3,7 +3,7 @@ from django.contrib import admin
 from django.core.validators import RegexValidator
 from .models import ConfigValue
 from django.core.exceptions import ValidationError
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 # custom models
 from .utils.validation import HexColorValidator

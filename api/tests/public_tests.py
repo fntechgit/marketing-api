@@ -34,5 +34,5 @@ class PublicTests(APITestCase):
         response = self.client.get('{url}?page=2&per_page=5'.format(url=url))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         json_response = json.loads(response.content)
-        self.assertEqual(json_response['current_page'] == 2)
-        self.assertEqual(json_response['per_page'] == 5)
+        self.assertEqual(2, json_response['current_page'])
+        self.assertEqual(5, json_response['per_page'])
