@@ -1,7 +1,3 @@
-import os
-import random
-import string
-
 from django.urls import reverse
 from rest_framework.test import APITestCase
 
@@ -55,13 +51,9 @@ tracer = trace.get_tracer(__name__)
 
 
 class OpenTelemetryInstrumentationTest(APITestCase):
-    def randomString(self, str_len):
-        letters = string.ascii_letters
-        return ''.join(random.choice(letters) for i in range(str_len))
 
     def setUp(self):
         memory_exporter.clear()
-        self.access_token = os.environ.get('ACCESS_TOKEN', 'TEST')
         self.url = reverse('config-values-read:index')
 
     def test_cf_ray_header(self):
