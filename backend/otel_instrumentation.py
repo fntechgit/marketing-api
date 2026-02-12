@@ -1,4 +1,8 @@
+import atexit
+import logging
 import os
+import signal
+
 from opentelemetry import baggage as baggage_api
 from opentelemetry import trace
 from opentelemetry.instrumentation.django import DjangoInstrumentor
@@ -13,7 +17,15 @@ from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExport
 OTEL_EXPORTER_OTLP_ENDPOINT = os.getenv('OTEL_EXPORTER_OTLP_ENDPOINT')
 OTEL_EXPORTER_MODE = os.getenv('OTEL_EXPORTER_MODE')
 
+SHUTDOWN_TIMEOUT_MILLIS = 5000
+
+logger = logging.getLogger(__name__)
+
+
 class DjangoTelemetry:
+
+    _provider = None
+    _shutdown_called = False
 
     @staticmethod
     def request_hook(span, request):
@@ -63,8 +75,6 @@ class DjangoTelemetry:
     @classmethod
     def setup(cls, environment):
         if environment != "test":
-            # set the OTEL_EXPORTER_MODE to null
-            # No Exporter setup if the env is dev and you want to run the tests locally
             if OTEL_EXPORTER_MODE:
                 resource = Resource.create({
                     "service.name": os.getenv("OTEL_SERVICE_NAME", "marketing-api")
@@ -72,12 +82,14 @@ class DjangoTelemetry:
                 # Provider with resource
                 provider = TracerProvider(resource=resource)
                 trace.set_tracer_provider(provider)
+                cls._provider = provider
                 if OTEL_EXPORTER_MODE == "otel_endpoint":
                     exporter = OTLPSpanExporter(endpoint=OTEL_EXPORTER_OTLP_ENDPOINT)
                     provider.add_span_processor(BatchSpanProcessor(exporter))
                 elif OTEL_EXPORTER_MODE == "console":
                     exporter = ConsoleSpanExporter()
                     provider.add_span_processor(BatchSpanProcessor(exporter))
+                cls._register_shutdown_hooks()
 
         # Django
         DjangoInstrumentor().instrument(
@@ -95,3 +107,49 @@ class DjangoTelemetry:
             tracer_provider=trace.get_tracer_provider(),
             request_hook=cls.redis_hook,
         )
+
+    @classmethod
+    def _register_shutdown_hooks(cls):
+        """Register atexit and SIGTERM handlers for graceful span flushing."""
+        atexit.register(cls.shutdown)
+
+        previous_handler = signal.getsignal(signal.SIGTERM)
+
+        def _sigterm_handler(signum, frame):
+            cls.shutdown()
+            if callable(previous_handler) and previous_handler not in (
+                signal.SIG_DFL, signal.SIG_IGN
+            ):
+                previous_handler(signum, frame)
+            elif previous_handler == signal.SIG_DFL:
+                signal.signal(signal.SIGTERM, signal.SIG_DFL)
+                signal.raise_signal(signal.SIGTERM)
+
+        signal.signal(signal.SIGTERM, _sigterm_handler)
+
+    @classmethod
+    def shutdown(cls):
+        """Flush and shut down the TracerProvider."""
+        if cls._shutdown_called:
+            return
+        cls._shutdown_called = True
+
+        provider = cls._provider
+        if provider is None:
+            return
+
+        try:
+            logger.info("DjangoTelemetry::shutdown - flushing spans before shutdown.")
+            flushed = provider.force_flush(timeout_millis=SHUTDOWN_TIMEOUT_MILLIS)
+            if not flushed:
+                logger.warning(
+                    "DjangoTelemetry::shutdown - force_flush timed out after %d ms.",
+                    SHUTDOWN_TIMEOUT_MILLIS,
+                )
+        except Exception:
+            logger.exception("DjangoTelemetry::shutdown - error during force_flush.")
+
+        try:
+            provider.shutdown()
+        except Exception:
+            logger.exception("DjangoTelemetry::shutdown - error during provider shutdown.")

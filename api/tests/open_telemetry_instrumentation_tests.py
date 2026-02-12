@@ -1,3 +1,7 @@
+import signal
+from unittest.mock import patch, MagicMock
+
+from django.test import TestCase
 from django.urls import reverse
 from rest_framework.test import APITestCase
 
@@ -6,6 +10,8 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter, SpanExportResult
 from opentelemetry.propagate import extract
 from opentelemetry.baggage import get_baggage
+
+from backend.otel_instrumentation import DjangoTelemetry, SHUTDOWN_TIMEOUT_MILLIS
 
 
 class InMemorySpanExporter(SpanExporter):
@@ -158,3 +164,114 @@ class OpenTelemetryInstrumentationTest(APITestCase):
         self.assertEqual(exported.resource.attributes.get('service.name'), 'marketing-api')
         self.assertEqual(exported.attributes.get("http.custom_header"), "abc123")
         self.assertEqual(exported.attributes.get("http.response_length"), 42)
+
+
+class OpenTelemetryShutdownTest(TestCase):
+    """Tests for OpenTelemetry graceful shutdown behavior."""
+
+    def setUp(self):
+        DjangoTelemetry._provider = None
+        DjangoTelemetry._shutdown_called = False
+
+    def tearDown(self):
+        DjangoTelemetry._provider = None
+        DjangoTelemetry._shutdown_called = False
+
+    def test_shutdown_with_no_provider(self):
+        """shutdown() should be safe when _provider is None (test environments)."""
+        DjangoTelemetry.shutdown()
+        self.assertTrue(DjangoTelemetry._shutdown_called)
+
+    def test_shutdown_calls_force_flush_and_shutdown(self):
+        """shutdown() should call force_flush then shutdown on the provider."""
+        mock_provider = MagicMock()
+        mock_provider.force_flush.return_value = True
+        DjangoTelemetry._provider = mock_provider
+
+        DjangoTelemetry.shutdown()
+
+        mock_provider.force_flush.assert_called_once_with(
+            timeout_millis=SHUTDOWN_TIMEOUT_MILLIS
+        )
+        mock_provider.shutdown.assert_called_once()
+        self.assertTrue(DjangoTelemetry._shutdown_called)
+
+    def test_shutdown_is_idempotent(self):
+        """Calling shutdown() multiple times should only flush/shutdown once."""
+        mock_provider = MagicMock()
+        mock_provider.force_flush.return_value = True
+        DjangoTelemetry._provider = mock_provider
+
+        DjangoTelemetry.shutdown()
+        DjangoTelemetry.shutdown()
+        DjangoTelemetry.shutdown()
+
+        mock_provider.force_flush.assert_called_once()
+        mock_provider.shutdown.assert_called_once()
+
+    @patch('backend.otel_instrumentation.logger')
+    def test_shutdown_handles_force_flush_exception(self, mock_logger):
+        """shutdown() should not raise even if force_flush throws."""
+        mock_provider = MagicMock()
+        mock_provider.force_flush.side_effect = RuntimeError("network error")
+        DjangoTelemetry._provider = mock_provider
+
+        DjangoTelemetry.shutdown()
+
+        mock_provider.force_flush.assert_called_once()
+        mock_provider.shutdown.assert_called_once()
+        mock_logger.exception.assert_called()
+
+    @patch('backend.otel_instrumentation.logger')
+    def test_shutdown_handles_provider_shutdown_exception(self, mock_logger):
+        """shutdown() should not raise even if provider.shutdown() throws."""
+        mock_provider = MagicMock()
+        mock_provider.force_flush.return_value = True
+        mock_provider.shutdown.side_effect = RuntimeError("shutdown error")
+        DjangoTelemetry._provider = mock_provider
+
+        DjangoTelemetry.shutdown()
+
+        mock_provider.force_flush.assert_called_once()
+        mock_provider.shutdown.assert_called_once()
+        mock_logger.exception.assert_called()
+
+    def test_shutdown_logs_warning_on_flush_timeout(self):
+        """shutdown() should log a warning when force_flush returns False (timeout)."""
+        mock_provider = MagicMock()
+        mock_provider.force_flush.return_value = False
+        DjangoTelemetry._provider = mock_provider
+
+        with self.assertLogs('backend.otel_instrumentation', level='WARNING') as cm:
+            DjangoTelemetry.shutdown()
+
+        self.assertTrue(any('timed out' in msg for msg in cm.output))
+
+    @patch('backend.otel_instrumentation.atexit')
+    @patch('backend.otel_instrumentation.signal')
+    def test_register_shutdown_hooks_registers_atexit(self, mock_signal, mock_atexit):
+        """_register_shutdown_hooks should register atexit handler."""
+        mock_signal.getsignal.return_value = signal.SIG_DFL
+        mock_signal.SIGTERM = signal.SIGTERM
+        mock_signal.SIG_DFL = signal.SIG_DFL
+        mock_signal.SIG_IGN = signal.SIG_IGN
+
+        DjangoTelemetry._register_shutdown_hooks()
+
+        mock_atexit.register.assert_called_once_with(DjangoTelemetry.shutdown)
+
+    @patch('backend.otel_instrumentation.atexit')
+    @patch('backend.otel_instrumentation.signal')
+    def test_register_shutdown_hooks_registers_sigterm(self, mock_signal, mock_atexit):
+        """_register_shutdown_hooks should install a SIGTERM handler."""
+        mock_signal.getsignal.return_value = signal.SIG_DFL
+        mock_signal.SIGTERM = signal.SIGTERM
+        mock_signal.SIG_DFL = signal.SIG_DFL
+        mock_signal.SIG_IGN = signal.SIG_IGN
+
+        DjangoTelemetry._register_shutdown_hooks()
+
+        mock_signal.signal.assert_called_once()
+        args = mock_signal.signal.call_args
+        self.assertEqual(args[0][0], signal.SIGTERM)
+        self.assertTrue(callable(args[0][1]))
