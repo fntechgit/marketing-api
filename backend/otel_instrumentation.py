@@ -33,7 +33,9 @@ class DjangoTelemetry:
             return
 
         # Attach CF-Ray header
-        span.set_attribute("cf.ray_id", request.headers.get("Cf-Ray", ""))
+        cf_ray = span.set_attribute("cf.ray_id", request.headers.get("Cf-Ray"))
+        if cf_ray:
+            span.set_attribute("http.request.header.cf-ray", cf_ray)
 
         # Attach baggage if present
         baggage_val = baggage_api.get_baggage("cf.ray_id")
@@ -42,8 +44,13 @@ class DjangoTelemetry:
 
     @staticmethod
     def response_hook(span, request, response):
-        if span.is_recording() and hasattr(response, "content"):
-            span.set_attribute("http.response.length", len(response.content))
+        if not span.is_recording():
+            return
+        try:
+            if hasattr(response, "content"):
+                span.set_attribute("http.response.length", len(response.content))
+        except Exception:
+            pass
 
     @staticmethod
     def mysql_hook(span, instance, cursor, statement, parameters):
