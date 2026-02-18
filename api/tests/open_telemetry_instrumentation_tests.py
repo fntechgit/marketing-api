@@ -1,3 +1,4 @@
+import os
 import signal
 from unittest.mock import patch, MagicMock
 
@@ -79,9 +80,10 @@ class OpenTelemetryInstrumentationTest(APITestCase):
 
         # Exported spans should exist
         spans = memory_exporter.get_finished_spans()
-        self.assertEqual(spans[0].resource.attributes.get('service.name'), 'marketing-api')
-        self.assertEqual(len(spans), 6)
-        exported_span = spans[5]
+        # Find the top-level Django HTTP span by name pattern
+        http_spans = [s for s in spans if s.name.startswith("GET ")]
+        self.assertEqual(len(http_spans), 1)
+        exported_span = http_spans[0]
         # Since no traceparent was injected, parent should be INVALID
         self.assertEqual(exported_span.parent, None)
         # Our CF-RAY header should be recorded in span attributes
@@ -111,9 +113,10 @@ class OpenTelemetryInstrumentationTest(APITestCase):
 
         # Verify a span was exported
         spans = memory_exporter.get_finished_spans()
-        self.assertEqual(len(spans), 6)
+        http_spans = [s for s in spans if s.name.startswith("GET ")]
+        self.assertEqual(len(http_spans), 1)
+        exported_span = http_spans[0]
         self.assertEqual(spans[0].resource.attributes.get('service.name'), 'marketing-api')
-        exported_span = spans[5]
         # Check that the trace_id is the same as the injected traceparent
         self.assertEqual(format(exported_span.context.trace_id, "032x"), trace_id)
 
@@ -126,31 +129,92 @@ class OpenTelemetryInstrumentationTest(APITestCase):
         # And should also show up in span attributes (if your request_hook adds it)
         self.assertEqual(exported_span.attributes.get("baggage.cf.ray_id"), "xyz")
 
+    @patch.dict(os.environ, {'DB_NAME': 'my_app_db'})
     def test_mysql_span_has_db_name(self):
-        """Simulate a MySQL query and assert db.name attribute is added."""
+        """mysql_hook sets db.system, db.name (env default), and db.statement on the span."""
         with tracer.start_as_current_span("mysql-test") as span:
-            span.set_attribute("db.name", "test_db")
-            span.set_attribute("db.statement", "SELECT 1")
+            DjangoTelemetry.mysql_hook(span, MagicMock(), MagicMock(), "SELECT 1", ())
 
         spans = memory_exporter.get_finished_spans()
-        self.assertEqual(len(spans), 1)
-        exported = spans[0]
+        mysql_spans = [s for s in spans if s.name == "mysql-test"]
+        self.assertEqual(len(mysql_spans), 1)
+        exported = mysql_spans[0]
         self.assertEqual(exported.resource.attributes.get('service.name'), 'marketing-api')
-        self.assertEqual(exported.attributes.get("db.name"), "test_db")
-        self.assertIn("SELECT", exported.attributes.get("db.statement"))
+        self.assertEqual(exported.attributes.get("db.system"), "mysql")
+        self.assertEqual(exported.attributes.get("db.name"), "my_app_db")
+        self.assertEqual(exported.attributes.get("db.statement"), "SELECT 1")
+
+    def test_mysql_hook_skips_non_recording_span(self):
+        """mysql_hook sets no attributes when span.is_recording() is False."""
+        span = MagicMock()
+        span.is_recording.return_value = False
+
+        DjangoTelemetry.mysql_hook(span, MagicMock(), MagicMock(), "SELECT 1", ())
+
+        span.set_attribute.assert_not_called()
+
+    def test_mysql_hook_swallows_exceptions(self):
+        """mysql_hook does not propagate exceptions raised by set_attribute."""
+        span = MagicMock()
+        span.is_recording.return_value = True
+        span.set_attribute.side_effect = RuntimeError("boom")
+
+        exception_raised = False
+        try:
+            DjangoTelemetry.mysql_hook(span, MagicMock(), MagicMock(), "SELECT 1", ())
+        except RuntimeError:
+            exception_raised = True
+
+        self.assertFalse(exception_raised, "mysql_hook should catch and not re-raise")
+        self.assertTrue(span.set_attribute.called, "mysql_hook should have attempted to set attributes")
 
     def test_redis_span_has_key(self):
-        """Simulate a Redis command and assert db.redis.key is added."""
+        """redis_hook sets db.system, redis.command, and redis.key on the span."""
         with tracer.start_as_current_span("redis-test") as span:
-            span.set_attribute("db.redis.command", "GET")
-            span.set_attribute("db.redis.key", "my_key")
+            DjangoTelemetry.redis_hook(span, MagicMock(), ("GET", "my_key"), {})
 
         spans = memory_exporter.get_finished_spans()
-        self.assertEqual(len(spans), 1)
-        exported = spans[0]
+        redis_spans = [s for s in spans if s.name.startswith("redis-test")]
+
+        self.assertEqual(len(redis_spans), 1)
+        exported = redis_spans[0]
         self.assertEqual(exported.resource.attributes.get('service.name'), 'marketing-api')
-        self.assertEqual(exported.attributes.get("db.redis.command"), "GET")
-        self.assertEqual(exported.attributes.get("db.redis.key"), "my_key")
+        self.assertEqual(exported.attributes.get("db.system"), "redis")
+        self.assertEqual(exported.attributes.get("redis.command"), "GET")
+        self.assertEqual(exported.attributes.get("redis.key"), "my_key")
+
+    def test_redis_hook_no_key_in_args(self):
+        """redis_hook does not set redis.key when args contains only the command."""
+        with tracer.start_as_current_span("redis-nokey-test") as span:
+            DjangoTelemetry.redis_hook(span, MagicMock(), ("DEL",), {})
+
+        exported = memory_exporter.get_finished_spans()[0]
+        self.assertEqual(exported.attributes.get("redis.command"), "DEL")
+        self.assertIsNone(exported.attributes.get("redis.key"))
+
+    def test_redis_hook_skips_non_recording_span(self):
+        """redis_hook sets no attributes when span.is_recording() is False."""
+        span = MagicMock()
+        span.is_recording.return_value = False
+
+        DjangoTelemetry.redis_hook(span, MagicMock(), ("GET", "key"), {})
+
+        span.set_attribute.assert_not_called()
+
+    def test_redis_hook_swallows_exceptions(self):
+        """redis_hook does not propagate exceptions raised by set_attribute."""
+        span = MagicMock()
+        span.is_recording.return_value = True
+        span.set_attribute.side_effect = RuntimeError("boom")
+
+        exception_raised = False
+        try:
+            DjangoTelemetry.redis_hook(span, MagicMock(), ("GET", "key"), {})
+        except RuntimeError:
+            exception_raised = True
+
+        self.assertFalse(exception_raised, "redis_hook should catch and not re-raise")
+        self.assertTrue(span.set_attribute.called, "redis_hook should have attempted to set attributes")
 
     def test_requests_span_has_custom_header(self):
         """Simulate a requests span and assert custom header is captured."""
@@ -159,11 +223,12 @@ class OpenTelemetryInstrumentationTest(APITestCase):
             span.set_attribute("http.response_length", 42)
 
         spans = memory_exporter.get_finished_spans()
-        self.assertEqual(len(spans), 1)
-        exported = spans[0]
-        self.assertEqual(exported.resource.attributes.get('service.name'), 'marketing-api')
-        self.assertEqual(exported.attributes.get("http.custom_header"), "abc123")
-        self.assertEqual(exported.attributes.get("http.response_length"), 42)
+        request_spans   = [s for s in spans if s.name.startswith("requests-test")]
+        self.assertEqual(len(request_spans), 1)
+        exported_span = request_spans[0]
+        self.assertEqual(exported_span.resource.attributes.get('service.name'), 'marketing-api')
+        self.assertEqual(exported_span.attributes.get("http.custom_header"), "abc123")
+        self.assertEqual(exported_span.attributes.get("http.response_length"), 42)
 
 
 class OpenTelemetryShutdownTest(TestCase):

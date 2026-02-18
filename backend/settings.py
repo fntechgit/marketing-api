@@ -14,6 +14,7 @@ import os
 from django.utils.translation import gettext_lazy as _
 from dotenv import load_dotenv
 import sys
+from backend.env_var_eval import env_bool
 
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
@@ -364,7 +365,6 @@ STATICFILES_DIRS = [
 
 DEV_EMAIL = os.getenv('DEV_EMAIL')
 
-from backend.env_var_eval import env_bool
 OTEL_INSTRUMENTATION_ENABLED = env_bool('OTEL_INSTRUMENTATION_ENABLED', True)
 
 if OTEL_INSTRUMENTATION_ENABLED:
