@@ -10,3 +10,5 @@ dist/
 *.log
 static/
 settings_local.py
+.claude
+.nvmrc

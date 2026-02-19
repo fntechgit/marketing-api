@@ -333,7 +333,7 @@ STORAGES_CONFIG = {
         'STORAGE_BUCKET_NAME': os.getenv("AWS_STORAGE_BUCKET_NAME"),
         'REGION_NAME': os.getenv("AWS_S3_REGION_NAME"),
         'CUSTOM_DOMAIN': os.getenv("AWS_S3_CUSTOM_DOMAIN"),
-        'DEFAULT_ACL': os.getenv("AWS_DEFAULT_ACL", "private"),
+        'DEFAULT_ACL': os.getenv("AWS_DEFAULT_ACL", "public-read"),
         'GZIP_CONTENT_TYPES': os.getenv("S3_GZIP_CONTENT_TYPES", ['text/css','application/javascript','application/json'])
     }
 }

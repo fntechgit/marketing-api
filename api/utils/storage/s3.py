@@ -30,7 +30,7 @@ class S3Storage(BaseCloudStorage):
     _use_ssl = config('STORAGES_CONFIG.S3.USE_SSL', True)
     _endpoint_url = config('STORAGES_CONFIG.S3.ENDPOINT_URL', None)
     _gzip_content_types = config('STORAGES_CONFIG.S3.GZIP_CONTENT_TYPES', [])
-    _default_acl = config('STORAGES_CONFIG.S3.DEFAULT_ACL', 'private')
+    _default_acl = config('STORAGES_CONFIG.S3.DEFAULT_ACL', 'public-read')
 
     def _get_client(self):
         if not self._s3_client:
