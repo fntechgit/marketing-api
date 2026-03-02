@@ -116,7 +116,7 @@ class OpenTelemetryInstrumentationTest(APITestCase):
         http_spans = [s for s in spans if s.name.startswith("GET ")]
         self.assertEqual(len(http_spans), 1)
         exported_span = http_spans[0]
-        self.assertEqual(spans[0].resource.attributes.get('service.name'), 'marketing-api')
+        self.assertEqual(exported_span.resource.attributes.get('service.name'), 'marketing-api')
         # Check that the trace_id is the same as the injected traceparent
         self.assertEqual(format(exported_span.context.trace_id, "032x"), trace_id)
 
