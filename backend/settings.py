@@ -72,6 +72,7 @@ INSTALLED_APPS = [
     'django_filters',
     'django_extensions',
     'api.apps.ApiConfig',
+    'drf_spectacular',
 ]
 
 MIDDLEWARE = [
@@ -298,6 +299,8 @@ REST_FRAMEWORK = {
     'SEARCH_PARAM': 'filter',
     'ORDERING_PARAM': 'order',
     'DEFAULT_VERSIONING_CLASS': 'rest_framework.versioning.URLPathVersioning',
+    'DEFAULT_VERSION': 'v1',
+    'ALLOWED_VERSIONS': ['v1'],
     'DEFAULT_PAGINATION_CLASS': 'api.utils.pagination.LargeResultsSetPagination',
     'PAGE_SIZE': 100,
     'DEFAULT_THROTTLE_CLASSES': [
@@ -307,7 +310,36 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'anon': '1000/min',
         'user': '10000/min'
-    }
+    },
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Marketing API',
+    'DESCRIPTION': 'API for managing marketing configuration values',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'OAS_VERSION': '3.1.0',
+    'POSTPROCESSING_HOOKS': ['backend.openapi_hooks.custom_postprocessing_hook'],
+    'EXCLUDE_PATH_REGEX': r'^/admin',
+    'TAGS': [
+        {'name': 'Public', 'description': 'Unauthenticated read endpoints'},
+        {'name': 'Private', 'description': 'OAuth2-protected write endpoints'},
+    ],
+    'SECURITY': [{'OAuth2': []}],
+    'APPEND_COMPONENTS': {
+        'securitySchemes': {
+            'OAuth2': {
+                'type': 'oauth2',
+                'flows': {
+                    'clientCredentials': {
+                        'tokenUrl': '{}/oauth/token'.format(os.getenv('OAUTH2_IDP_BASE_URL', 'http://localhost:8007')),
+                        'scopes': {},
+                    },
+                },
+            },
+        },
+    },
 }
 
 # https://docs.djangoproject.com/en/3.0/ref/settings/
