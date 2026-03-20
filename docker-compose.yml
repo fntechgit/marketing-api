@@ -21,7 +21,7 @@ services:
         condition: service_healthy
   redis:
     image: redis:latest
-    restart: always
+    restart: unless-stopped
     command: redis-server --save 20 1 --loglevel warning --requirepass ${REDIS_PASSWORD}
     ports:
       - ${REDIS_PORT}
@@ -45,7 +45,7 @@ services:
       SERVICE_TAGS: dev
       SERVICE_NAME: mysql
     healthcheck:
-      test: [ "CMD", "mysqladmin" ,"ping", "-h", "localhost" ]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       timeout: 20s
       retries: 10
     volumes:

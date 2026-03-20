@@ -311,7 +311,7 @@ REST_FRAMEWORK = {
         'anon': '1000/min',
         'user': '10000/min'
     },
-    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_SCHEMA_CLASS': 'backend.openapi_schema.MarketingAutoSchema',
 }
 
 SPECTACULAR_SETTINGS = {
@@ -320,13 +320,11 @@ SPECTACULAR_SETTINGS = {
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
     'OAS_VERSION': '3.1.0',
-    'POSTPROCESSING_HOOKS': ['backend.openapi_hooks.custom_postprocessing_hook'],
     'EXCLUDE_PATH_REGEX': r'^/admin',
     'TAGS': [
         {'name': 'Public', 'description': 'Unauthenticated read endpoints'},
         {'name': 'Private', 'description': 'OAuth2-protected write endpoints'},
     ],
-    'SECURITY': [{'OAuth2': []}],
     'APPEND_COMPONENTS': {
         'securitySchemes': {
             'OAuth2': {

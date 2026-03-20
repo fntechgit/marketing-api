@@ -14,7 +14,7 @@ WORKDIR /opt/project
 # Install dependencies
 COPY requirements.txt /opt/project/
 RUN pip install --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt
+  && pip install --no-cache-dir -r requirements.txt
 
 # Copy the project
 COPY . /opt/project/
