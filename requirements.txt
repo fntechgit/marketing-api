@@ -66,3 +66,4 @@ uritemplate==4.2.0
 urllib3==2.5.0
 Werkzeug==3.1.4
 wrapt==2.0.1
+git+https://github.com/fntechgit/ftn-audit.git@main#egg=ftn-audit

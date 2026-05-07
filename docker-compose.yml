@@ -8,12 +8,31 @@ services:
     container_name: marketing-api
     restart: unless-stopped
     working_dir: /opt/project
+    env_file:
+      - ./.env
     volumes:
       - ./:/opt/project
     networks:
       - marketing-api-local-net
     ports:
       - "8007:8007"
+    depends_on:
+      redis:
+        condition: service_started
+      db:
+        condition: service_healthy
+  celery:
+    image: marketing-api
+    command: celery -A backend worker -l info
+    container_name: marketing-api-celery
+    restart: unless-stopped
+    working_dir: /opt/project
+    env_file:
+      - ./.env
+    volumes:
+      - ./:/opt/project
+    networks:
+      - marketing-api-local-net
     depends_on:
       redis:
         condition: service_started

@@ -5,7 +5,7 @@ ENV PYTHONUNBUFFERED 1
 
 # base packages
 RUN apt update \
-  && apt install -y python3-dev default-libmysqlclient-dev build-essential redis-tools pkg-config libmagic1 file \
+  && apt install -y python3-dev default-libmysqlclient-dev build-essential git redis-tools pkg-config libmagic1 file \
   && rm -rf /var/lib/apt/lists/*
 
 # Set the working directory

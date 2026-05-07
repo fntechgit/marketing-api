@@ -60,6 +60,7 @@ SERVER_EMAIL = os.getenv('SERVER_EMAIL')
 # Application definition
 
 INSTALLED_APPS = [
+    'ftn_audit',
     'rest_framework',
     'corsheaders',
     'model_utils',
@@ -75,6 +76,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'ftn_audit.middleware.AuditContextMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -84,6 +86,12 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+AUDIT_ENABLED = os.getenv('AUDIT_ENABLED', 'false').lower() == 'true'
+AUDIT_DELIVERY_MODE = os.getenv('AUDIT_DELIVERY_MODE', 'celery')
+AUDIT_OTLP_FALLBACK = os.getenv('AUDIT_OTLP_FALLBACK', 'structured_log')
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL')
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND')
 
 # https://docs.djangoproject.com/en/3.0/ref/settings/#std:setting-ROOT_URLCONF
 ROOT_URLCONF = 'backend.urls'
@@ -277,6 +285,11 @@ LOGGING = {
             'level': os.getenv('TEST_LOG_LEVEL', 'DEBUG'),
             'propagate': True,
         },
+        'audit': {
+            'handlers': ['file', 'console'],
+            'level': os.getenv('AUDIT_LOG_LEVEL', 'DEBUG'),
+            'propagate': False,
+        },
     },
 }
 
@@ -367,4 +380,3 @@ try:
     from .settings_local import *
 except ImportError:
     print("Notice: Didn't import settings_local.")
-

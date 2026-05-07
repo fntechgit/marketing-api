@@ -16,9 +16,15 @@ def oauth2_scope_required(required_scope):
 
             request = view.request
             token_info = request.auth
+            auth_bypass = os.getenv("AUTH_BYPASS", "false").lower() == "true"
 
             # shortcircuit
-            if os.getenv("ENV") == 'test':
+            if os.getenv("ENV") == 'test' or auth_bypass:
+                if auth_bypass:
+                    logging.getLogger('oauth2').warning(
+                        "AUTH_BYPASS=true, skipping oauth2 scope check for required scope '%s'",
+                        required_scope
+                    )
                 return func(view, token_info=token_info, *args, **kwargs)
 
             if token_info is None:

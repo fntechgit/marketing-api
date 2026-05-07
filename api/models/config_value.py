@@ -1,11 +1,12 @@
 from django.core.files.storage import default_storage
 from django.core.validators import RegexValidator
 from django.db import models
+from dirtyfields import DirtyFieldsMixin
 from model_utils.models import TimeStampedModel
 from django.utils.translation import gettext_lazy as _
 
 
-class ConfigValue(TimeStampedModel):
+class ConfigValue(DirtyFieldsMixin, TimeStampedModel):
 
     ConfigType = models.TextChoices('ConfigType', 'TEXT TEXTAREA FILE HEX_COLOR')
     # unique per show
