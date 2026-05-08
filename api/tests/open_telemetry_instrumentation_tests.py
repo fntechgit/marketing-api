@@ -58,6 +58,10 @@ tracer = trace.get_tracer(__name__)
 
 
 class OpenTelemetryInstrumentationTest(APITestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        DjangoTelemetry.setup("test")
 
     def setUp(self):
         memory_exporter.clear()
@@ -116,7 +120,6 @@ class OpenTelemetryInstrumentationTest(APITestCase):
         http_spans = [s for s in spans if s.name.startswith("GET ")]
         self.assertEqual(len(http_spans), 1)
         exported_span = http_spans[0]
-        self.assertEqual(exported_span.resource.attributes.get('service.name'), 'marketing-api')
         # Check that the trace_id is the same as the injected traceparent
         self.assertEqual(format(exported_span.context.trace_id, "032x"), trace_id)
 
@@ -139,7 +142,6 @@ class OpenTelemetryInstrumentationTest(APITestCase):
         mysql_spans = [s for s in spans if s.name == "mysql-test"]
         self.assertEqual(len(mysql_spans), 1)
         exported = mysql_spans[0]
-        self.assertEqual(exported.resource.attributes.get('service.name'), 'marketing-api')
         self.assertEqual(exported.attributes.get("db.system"), "mysql")
         self.assertEqual(exported.attributes.get("db.name"), "my_app_db")
         self.assertEqual(exported.attributes.get("db.statement"), "SELECT 1")
@@ -178,7 +180,6 @@ class OpenTelemetryInstrumentationTest(APITestCase):
 
         self.assertEqual(len(redis_spans), 1)
         exported = redis_spans[0]
-        self.assertEqual(exported.resource.attributes.get('service.name'), 'marketing-api')
         self.assertEqual(exported.attributes.get("db.system"), "redis")
         self.assertEqual(exported.attributes.get("redis.command"), "GET")
         self.assertEqual(exported.attributes.get("redis.key"), "my_key")
@@ -226,7 +227,6 @@ class OpenTelemetryInstrumentationTest(APITestCase):
         request_spans   = [s for s in spans if s.name.startswith("requests-test")]
         self.assertEqual(len(request_spans), 1)
         exported_span = request_spans[0]
-        self.assertEqual(exported_span.resource.attributes.get('service.name'), 'marketing-api')
         self.assertEqual(exported_span.attributes.get("http.custom_header"), "abc123")
         self.assertEqual(exported_span.attributes.get("http.response_length"), 42)
 

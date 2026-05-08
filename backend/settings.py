@@ -365,7 +365,7 @@ STATICFILES_DIRS = [
 
 DEV_EMAIL = os.getenv('DEV_EMAIL')
 
-OTEL_INSTRUMENTATION_ENABLED = env_bool('OTEL_INSTRUMENTATION_ENABLED', True)
+OTEL_INSTRUMENTATION_ENABLED = env_bool('OTEL_INSTRUMENTATION_ENABLED', False)
 
 if OTEL_INSTRUMENTATION_ENABLED:
     from .otel_instrumentation import DjangoTelemetry
@@ -376,4 +376,3 @@ try:
     from .settings_local import *
 except ImportError:
     print("Notice: Didn't import settings_local.")
-

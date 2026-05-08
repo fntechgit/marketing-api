@@ -33,7 +33,9 @@ class DjangoTelemetry:
             return
 
         # Attach CF-Ray header
-        cf_ray = span.set_attribute("cf.ray_id", request.headers.get("Cf-Ray"))
+        cf_ray = request.headers.get("Cf-Ray")
+        if cf_ray:
+            span.set_attribute("cf.ray_id", cf_ray)
         if cf_ray:
             span.set_attribute("http.request.header.cf-ray", cf_ray)
 
