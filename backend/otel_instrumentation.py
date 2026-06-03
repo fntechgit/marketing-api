@@ -32,16 +32,15 @@ class DjangoTelemetry:
         if not span.is_recording():
             return
 
-        # Attach CF-Ray header
         cf_ray = request.headers.get("Cf-Ray")
         if cf_ray:
             span.set_attribute("cf.ray_id", cf_ray)
-        if cf_ray:
             span.set_attribute("http.request.header.cf-ray", cf_ray)
 
-        # Attach baggage if present
         baggage_val = baggage_api.get_baggage("cf.ray_id")
         if baggage_val:
+            if not cf_ray:
+                span.set_attribute("cf.ray_id", baggage_val)
             span.set_attribute("baggage.cf.ray_id", baggage_val)
 
     @staticmethod

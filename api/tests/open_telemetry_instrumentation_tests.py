@@ -131,6 +131,7 @@ class OpenTelemetryInstrumentationTest(APITestCase):
         self.assertEqual(baggage_value, "xyz")
         # And should also show up in span attributes (if your request_hook adds it)
         self.assertEqual(exported_span.attributes.get("baggage.cf.ray_id"), "xyz")
+        self.assertEqual(exported_span.attributes.get("cf.ray_id"), "xyz")
 
     @patch.dict(os.environ, {'DB_NAME': 'my_app_db'})
     def test_mysql_span_has_db_name(self):
