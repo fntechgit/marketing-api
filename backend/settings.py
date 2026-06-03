@@ -14,6 +14,7 @@ import os
 from django.utils.translation import gettext_lazy as _
 from dotenv import load_dotenv
 import sys
+from backend.env_var_eval import env_bool
 
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
@@ -362,9 +363,16 @@ STATICFILES_DIRS = [
     os.path.join(BASE_DIR, "backend/media"),
 ]
 
+DEV_EMAIL = os.getenv('DEV_EMAIL')
+
+OTEL_INSTRUMENTATION_ENABLED = env_bool('OTEL_INSTRUMENTATION_ENABLED', False)
+
+if OTEL_INSTRUMENTATION_ENABLED:
+    from .otel_instrumentation import DjangoTelemetry
+    DjangoTelemetry.setup(ENV)
+
 # Import local settings
 try:
     from .settings_local import *
 except ImportError:
     print("Notice: Didn't import settings_local.")
-

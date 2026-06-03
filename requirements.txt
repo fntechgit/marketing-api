@@ -65,4 +65,12 @@ tzdata==2025.2
 uritemplate==4.2.0
 urllib3==2.5.0
 Werkzeug==3.1.4
-wrapt==2.0.1
+wrapt==1.17.3
+
+#open-telemetry integration
+opentelemetry-sdk==1.39.1
+opentelemetry-exporter-otlp==1.39.1
+opentelemetry-instrumentation-django==0.60b1
+opentelemetry-instrumentation-requests==0.60b1
+opentelemetry-instrumentation-mysqlclient==0.60b1
+opentelemetry-instrumentation-redis==0.60b1
