@@ -34,6 +34,7 @@ services:
   db:
     image: mysql:8.4
     container_name: marketing-db-local
+    command: --mysql-native-password=ON
     restart: unless-stopped
     ports:
       - "30785:3306"
