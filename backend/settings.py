@@ -194,7 +194,7 @@ CACHES = {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
             "PASSWORD": os.getenv("REDIS_PASSWORD")
         },
-        "KEY_PREFIX": "marketing_api"
+        "KEY_PREFIX": os.getenv("REDIS_KEY_PREFIX", "marketing_api")
     }
 }
 
