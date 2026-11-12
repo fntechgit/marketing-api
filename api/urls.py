@@ -1,6 +1,6 @@
 from django.urls import path, include
 from .views import ConfigValueRetrieveAPIView, ConfigValueListAPIView, ConfigValueCreateAPIView, \
-    ConfigValueUpdateDestroyAPIView, ConfigValueCloneAPIView, ConfigValueAllListAPIView
+    ConfigValueUpdateDestroyAPIView, ConfigValueCloneAPIView, ConfigValueAllListAPIView, health
 
 config_values_read_patterns = ([
     path('', ConfigValueListAPIView.as_view(), name='index'),
@@ -19,6 +19,7 @@ config_values_write_patterns = ([
 ], 'config-values-write')
 
 public_urlpatterns = [
+    path('health', health, name='health'),
     path('config-values', include(config_values_read_patterns)),
 ]
 
