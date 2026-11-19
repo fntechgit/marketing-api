@@ -47,3 +47,9 @@ python manage.py runserver
 # kill debug process
 
 sudo lsof -t -i tcp:8000 | xargs kill -9
+
+# health check
+Public, unauthenticated liveness endpoint that touches no database, Redis or storage:
+```
+GET /api/public/v1/health   ->  200 "ok" (text/plain)
+```
