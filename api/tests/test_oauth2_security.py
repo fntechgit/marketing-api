@@ -13,29 +13,28 @@ from rest_framework.test import APITestCase
 
 # A fake token, long enough that a part of it in a log line cannot be a coincidence.
 TOKEN = 'mk-FAKE-ZqXwVuTsRqPoNmLkJiHgYzWv'
-GRANTED = 'config-values/test-granted'
-# The loggers marketing-api and base_api_utils.security write to, plus django.request and urllib3.
-# Not the root logger: while mail_admins renders its report for an ERROR logged inside an except
-# block, django.template logs every missing template variable at DEBUG with the exception being
-# handled as its context. That line is Django's, below the INFO level the image runs at.
-LOGGERS = ('oauth2', 'api', 'django.request', 'urllib3')
+# Every logger a line about a request can reach: marketing-api's and base_api_utils.security's,
+# Django's (django.template included), urllib3's and the root logger. All of them run at DEBUG.
+LOGGERS = ('', 'oauth2', 'api', 'django', 'django.request', 'django.template', 'urllib3')
+# As in the chart, every operation also accepts the shared write scope.
+WRITE = 'config-values/write'
 
-# The private operations and the OAUTH2.CLIENT.ENDPOINTS entry that guards each one.
+# The private operations: method, a URL, the OAUTH2.CLIENT.ENDPOINTS entry that guards it, its own scope.
 OPERATIONS = (
-    ('post', '/api/v1/config-values', '/api/v1/config-values'),
-    ('put', '/api/v1/config-values/1', '/api/v1/config-values/{id}'),
-    ('delete', '/api/v1/config-values/1', '/api/v1/config-values/{id}'),
+    ('post', '/api/v1/config-values', '/api/v1/config-values', 'config-values/add'),
+    ('put', '/api/v1/config-values/1', '/api/v1/config-values/{id}', 'config-values/update'),
+    ('delete', '/api/v1/config-values/1', '/api/v1/config-values/{id}', 'config-values/delete'),
     ('post', '/api/v1/config-values/all/shows/1/clone/2',
-     '/api/v1/config-values/all/shows/{show_id}/clone/{to_show_id}'),
+     '/api/v1/config-values/all/shows/{show_id}/clone/{to_show_id}', 'config-values/clone'),
 )
+ADD_SCOPE = OPERATIONS[0][3]
 
 
-def _oauth2_granting(scope):
-    """settings.OAUTH2 with every endpoint requiring ``scope``; the routes and methods are kept."""
+def _oauth2_with_operation_scopes():
+    """settings.OAUTH2 with each operation requiring its own scope or the shared write scope."""
     oauth2 = copy.deepcopy(settings.OAUTH2)
-    for methods in oauth2['CLIENT']['ENDPOINTS'].values():
-        for endpoint in methods.values():
-            endpoint['scopes'] = scope
+    for method, _, endpoint, scope in OPERATIONS:
+        oauth2['CLIENT']['ENDPOINTS'][endpoint][method]['scopes'] = f'{scope} {WRITE}'
     oauth2['IDP'].update(BASE_URL='https://idp.example.org', INTROSPECTION_ENDPOINT='oauth2/token/introspection')
     return oauth2
 
@@ -63,6 +62,7 @@ class _Capture(logging.Handler):
 @contextmanager
 def _logs_at_debug():
     capture = _Capture()
+    capture.setFormatter(logging.Formatter('%(name)s %(levelname)s %(message)s'))
     saved = []
     for name in LOGGERS:
         logger = logging.getLogger(name)
@@ -89,7 +89,7 @@ class OAuth2SecurityTest(APITestCase):
         self.cache = cache.start()
         self.addCleanup(cache.stop)
         self.cache.get.return_value = None
-        oauth2 = override_settings(OAUTH2=_oauth2_granting(GRANTED))
+        oauth2 = override_settings(OAUTH2=_oauth2_with_operation_scopes())
         oauth2.enable()
         self.addCleanup(oauth2.disable)
         # What runs once the scope check lets a request through is not under test here.
@@ -101,35 +101,47 @@ class OAuth2SecurityTest(APITestCase):
             view = patch(target, return_value=result)
             view.start()
             self.addCleanup(view.stop)
-        # The mail_admins handler sends every ERROR line by email; keep what it would send.
-        self.mails = []
-        mail = patch('django.utils.log.AdminEmailHandler.send_mail', autospec=True,
-                     side_effect=lambda handler, subject, message, *args, **kwargs: self.mails.append(f'{subject}\n{message}'))
-        mail.start()
-        self.addCleanup(mail.stop)
 
     def _call(self, method, url, introspection):
         with patch('base_api_utils.security.access_token_service.requests.post', introspection) as post:
             with _logs_at_debug() as lines:
                 response = getattr(self.client, method)(url, HTTP_AUTHORIZATION=f'Bearer {TOKEN}')
-        return response, post, '\n'.join(lines + self.mails)
+        return response, post, '\n'.join(lines)
+
+    def _call_with_scope(self, method, url, scope):
+        return self._call(method, url, MagicMock(return_value=_introspection(200, _token_info(scope))))
 
     def _assert_no_token_in(self, logged):
         self.assertNotIn(TOKEN, logged)
         self.assertNotIn(TOKEN[8:20], logged, 'a part of the token was logged')
 
-    def test_each_operation_lets_a_token_with_its_scope_through(self):
-        for method, url, endpoint in OPERATIONS:
+    def test_the_endpoint_entries_are_the_four_private_operations(self):
+        # A route or method missing from OAUTH2.CLIENT.ENDPOINTS is refused with a 403.
+        configured = {(path, method) for path, methods in settings.OAUTH2['CLIENT']['ENDPOINTS'].items()
+                      for method in methods}
+
+        self.assertEqual(configured, {(endpoint, method) for method, _, endpoint, _ in OPERATIONS})
+
+    def test_each_operation_lets_a_token_with_its_own_scope_through(self):
+        for method, url, endpoint, scope in OPERATIONS:
             with self.subTest(method=method, endpoint=endpoint):
-                response, _, logged = self._call(method, url, MagicMock(return_value=_introspection(200, _token_info(GRANTED))))
+                response, _, logged = self._call_with_scope(method, url, scope)
 
                 self.assertIn(response.status_code, (200, 201, 204), response.content)
                 self._assert_no_token_in(logged)
 
-    def test_each_operation_refuses_a_token_without_its_scope(self):
-        for method, url, endpoint in OPERATIONS:
+    def test_each_operation_lets_the_shared_write_scope_through(self):
+        for method, url, endpoint, _ in OPERATIONS:
             with self.subTest(method=method, endpoint=endpoint):
-                response, _, logged = self._call(method, url, MagicMock(return_value=_introspection(200, _token_info('other/scope'))))
+                response, _, _ = self._call_with_scope(method, url, WRITE)
+
+                self.assertIn(response.status_code, (200, 201, 204), response.content)
+
+    def test_each_operation_refuses_the_scopes_of_the_other_operations(self):
+        for method, url, endpoint, scope in OPERATIONS:
+            others = ' '.join(other for *_, other in OPERATIONS if other != scope)
+            with self.subTest(method=method, endpoint=endpoint):
+                response, _, logged = self._call_with_scope(method, url, others)
 
                 self.assertEqual(response.status_code, 403, response.content)
                 self._assert_no_token_in(logged)
@@ -157,10 +169,11 @@ class OAuth2SecurityTest(APITestCase):
         response, _, logged = self._call('post', '/api/v1/config-values', unreachable)
 
         self.assertEqual(response.status_code, 403)
+        self.assertIn('oauth2', logged, 'the failed introspection was not logged at all')
         self._assert_no_token_in(logged)
 
     @override_settings(DEBUG=False)
     def test_the_introspection_verifies_tls_when_debug_is_off(self):
-        _, post, _ = self._call('post', '/api/v1/config-values', MagicMock(return_value=_introspection(200, _token_info(GRANTED))))
+        _, post, _ = self._call_with_scope('post', '/api/v1/config-values', ADD_SCOPE)
 
         self.assertIs(post.call_args.kwargs['verify'], True)
