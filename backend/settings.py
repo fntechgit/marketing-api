@@ -46,15 +46,9 @@ DEBUG = False if ENV == 'production' else True
 
 ALLOWED_HOSTS = ['*']
 
-# https://github.com/sklarsa/django-sendgrid-v5
-SENDGRID_API_KEY = os.getenv('SENDGRID_API_KEY')
-EMAIL_BACKEND = "sendgrid_backend.SendgridBackend"
-
-FROM_EMAIL = os.getenv("FROM_EMAIL")
 # https://docs.djangoproject.com/en/3.0/howto/error-reporting/
 # string should have this format
 # name1,email1|name2,email2|....|nameN,emailN
-ADMINS = [tuple(x.split(',')) for x in os.getenv('ADMINS', '').split('|')]
 # admin from email
 SERVER_EMAIL = os.getenv('SERVER_EMAIL')
 # Application definition
@@ -201,17 +195,20 @@ CACHES = {
 # https://docs.djangoproject.com/en/3.0/topics/logging/
 # logging
 
+# The local sinks, file and console, are for development: LOG_HANDLERS picks them for every logger
+# below. The default keeps both; the container image sets it empty, so a deployed process logs only
+# through OTLP (vault: patterns/microservices/observability-otel.md, "Local log sinks"). Errors are
+# not emailed to admins: alerting comes from Loki.
+_LOCAL_SINKS = ('file', 'console')
+# A name other than file or console is ignored, so a stale value cannot stop the service booting.
+# With no sink left every logger gets a NullHandler: a logger with no handler at all would hand
+# its warnings to logging.lastResort, which writes them to stderr.
+_LOG_HANDLERS = [h.strip() for h in os.getenv('LOG_HANDLERS', 'file,console').split(',')
+                 if h.strip() in _LOCAL_SINKS] or ['null']
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
-    'filters': {
-        'require_debug_false': {
-            '()': 'django.utils.log.RequireDebugFalse',
-        },
-        'require_debug_true': {
-            '()': 'django.utils.log.RequireDebugTrue',
-        },
-    },
     'formatters': {
         'console': {
             # exact format is not important, this is the minimum information
@@ -223,59 +220,57 @@ LOGGING = {
         },
     },
     'handlers': {
+        'null': {
+            'class': 'logging.NullHandler',
+        },
         'console': {
             'class': 'logging.StreamHandler',
             'formatter': 'console',
-            'filters': ['require_debug_true'],
         },
         'file': {
             'formatter': 'file',
             'class': 'logging.FileHandler',
             'filename': os.path.join(BASE_DIR, "logs/api.log"),
+            # Opened on the first line written, so a process whose loggers do not use it creates no file.
+            'delay': True,
         },
-        'mail_admins': {
-            'class': 'django.utils.log.AdminEmailHandler',
-            'include_html': True,
-            'email_backend': 'sendgrid_backend.SendgridBackend',
-            'filters': ['require_debug_false'],
-            'level': 'ERROR',
-        }
     },
+    # The named loggers do not propagate: the root logger has the same sinks, and each line would
+    # be written twice.
     'loggers': {
         '': {
-            'handlers': ['file', 'mail_admins'],
+            'handlers': _LOG_HANDLERS,
             'level': 'DEBUG',
-            'propagate': True,
         },
         'django': {
-            'handlers': ['file', 'mail_admins'],
+            'handlers': _LOG_HANDLERS,
             'level': os.getenv('DJANGO_LOG_LEVEL', 'DEBUG'),
-            'propagate': True,
+            'propagate': False,
         },
         'api': {
-            'handlers': ['file', 'mail_admins'],
+            'handlers': _LOG_HANDLERS,
             'level': os.getenv('API_LOG_LEVEL', 'DEBUG'),
-            'propagate': True,
+            'propagate': False,
         },
         'serializers': {
-            'handlers': ['file', 'mail_admins'],
+            'handlers': _LOG_HANDLERS,
             'level': os.getenv('API_LOG_LEVEL', 'DEBUG'),
-            'propagate': True,
+            'propagate': False,
         },
         'oauth2': {
-            'handlers': ['file', 'console'],
+            'handlers': _LOG_HANDLERS,
             'level': os.getenv('OAUTH2_LOG_LEVEL', 'DEBUG'),
-            'propagate': True,
+            'propagate': False,
         },
         'jobs': {
-            'handlers': ['file', 'console'],
+            'handlers': _LOG_HANDLERS,
             'level': os.getenv('CRON_JOBS_LOG_LEVEL', 'DEBUG'),
-            'propagate': True,
+            'propagate': False,
         },
         'test': {
-            'handlers': ['console'],
+            'handlers': _LOG_HANDLERS,
             'level': os.getenv('TEST_LOG_LEVEL', 'DEBUG'),
-            'propagate': True,
+            'propagate': False,
         },
     },
 }
