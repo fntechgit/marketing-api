@@ -11,9 +11,12 @@ https://docs.djangoproject.com/en/3.0/ref/settings/
 """
 
 import os
+import logging
 from django.utils.translation import gettext_lazy as _
 from dotenv import load_dotenv
 import sys
+
+from backend.env_var_eval import env_bool
 
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
@@ -81,6 +84,20 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+# Tracing (backend/otel_instrumentation.py). Stays below MIDDLEWARE: DjangoInstrumentor inserts
+# its middleware into the list that exists when setup() runs.
+OTEL_INSTRUMENTATION_ENABLED = env_bool("OTEL_INSTRUMENTATION_ENABLED", False)
+
+if OTEL_INSTRUMENTATION_ENABLED:
+    try:
+        from .otel_instrumentation import DjangoTelemetry
+
+        DjangoTelemetry.setup(ENV)
+    except Exception as exc:
+        logging.getLogger("audit.otlp").warning(
+            "Failed to initialize OpenTelemetry tracing: %s", exc
+        )
 
 # https://docs.djangoproject.com/en/3.0/ref/settings/#std:setting-ROOT_URLCONF
 ROOT_URLCONF = 'backend.urls'

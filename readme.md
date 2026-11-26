@@ -53,3 +53,18 @@ Public, unauthenticated liveness endpoint that touches no database, Redis or sto
 ```
 GET /api/public/v1/health   ->  200 "ok" (text/plain)
 ```
+
+# OpenTelemetry (logs and traces)
+Off by default; both are enabled through env vars only (see the OpenTelemetry block in `backend/.env.example`):
+
+- Logs (`backend/otel.py`): `OTEL_SERVICE_ENABLED=true` ships the bridged loggers (`OTEL_BRIDGE_LOGGERS`) over OTLP/HTTP.
+  Each record is exported redacted (`RedactingHandlerMixin` from base-api-utils): no token, secret or query string credential leaves the process.
+- Traces (`backend/otel_instrumentation.py`): `OTEL_INSTRUMENTATION_ENABLED=true` instruments Django, MySQL, Redis and `requests`;
+  `OTEL_EXPORTER_MODE=otel_endpoint` exports the spans (`console` prints them).
+- `OTEL_EXPORTER_OTLP_ENDPOINT` is the collector base URL; `/v1/logs` and `/v1/traces` are appended. Timeouts are milliseconds.
+- `ENV=test` never exports.
+
+Local collector (logs and traces pipelines, output in `logs/otel/`):
+```
+docker compose --env-file ./backend/.env --profile otel up -d otel-collector
+```
