@@ -2,7 +2,7 @@ amqp==5.4.2
 asgiref==3.11.0
 attrs==26.1.0
 babel==2.17.0
-base-api-utils==1.1.123
+base-api-utils==1.1.124
 billiard==4.3.2
 boto3==1.42.2
 boto3-stubs==1.42.2

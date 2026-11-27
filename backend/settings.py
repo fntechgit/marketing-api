@@ -227,13 +227,14 @@ LOGGING = {
         'null': {
             'class': 'logging.NullHandler',
         },
+        # Both local sinks write each record redacted (backend/log_handlers.py).
         'console': {
-            'class': 'logging.StreamHandler',
+            'class': 'backend.log_handlers.RedactingStreamHandler',
             'formatter': 'console',
         },
         'file': {
             'formatter': 'file',
-            'class': 'logging.FileHandler',
+            'class': 'backend.log_handlers.RedactingFileHandler',
             'filename': os.path.join(BASE_DIR, "logs/api.log"),
             # Opened on the first line written, so a process whose loggers do not use it creates no file.
             'delay': True,
