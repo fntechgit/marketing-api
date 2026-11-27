@@ -60,6 +60,9 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django_filters',
     'django_extensions',
+    # Imported by base_api_utils.security (its package pulls the Celery task-result views in);
+    # marketing-api runs no Celery, so the tables it migrates stay empty.
+    'django_celery_results',
     'api.apps.ApiConfig',
 ]
 
@@ -219,13 +222,14 @@ LOGGING = {
         'null': {
             'class': 'logging.NullHandler',
         },
+        # Both local sinks write each record redacted (backend/log_handlers.py).
         'console': {
-            'class': 'logging.StreamHandler',
+            'class': 'backend.log_handlers.RedactingStreamHandler',
             'formatter': 'console',
         },
         'file': {
             'formatter': 'file',
-            'class': 'logging.FileHandler',
+            'class': 'backend.log_handlers.RedactingFileHandler',
             'filename': os.path.join(BASE_DIR, "logs/api.log"),
             # Opened on the first line written, so a process whose loggers do not use it creates no file.
             'delay': True,
@@ -338,15 +342,49 @@ STORAGES = {
     },
 }
 
-OAUTH2_IDP_BASE_URL = os.getenv('OAUTH2_IDP_BASE_URL')
-OAUTH2_IDP_INTROSPECTION_ENDPOINT = os.getenv('OAUTH2_IDP_INTROSPECTION_ENDPOINT')
-OAUTH2_CLIENT_ID = os.getenv('OAUTH2_CLIENT_ID')
-OAUTH2_CLIENT_SECRET = os.getenv('OAUTH2_CLIENT_SECRET')
-
-OAUTH2_ADD_SCOPE = os.getenv('OAUTH2_ADD_SCOPE')
-OAUTH2_UPDATE_SCOPE = os.getenv('OAUTH2_UPDATE_SCOPE')
-OAUTH2_DELETE_SCOPE = os.getenv('OAUTH2_DELETE_SCOPE')
-OAUTH2_CLONE_SCOPE = os.getenv('OAUTH2_CLONE_SCOPE')
+# OAuth2, read by base_api_utils.security (OAuth2Authentication, oauth2_scope_required).
+OAUTH2 = {
+    'IDP': {
+        'BASE_URL': os.getenv('OAUTH2_IDP_BASE_URL'),
+        'INTROSPECTION_ENDPOINT': os.getenv('OAUTH2_IDP_INTROSPECTION_ENDPOINT'),
+    },
+    'CLIENT': {
+        'ID': os.getenv('OAUTH2_CLIENT_ID'),
+        'SECRET': os.getenv('OAUTH2_CLIENT_SECRET'),
+        # Seconds the token info stays cached before the token is introspected again: a token the IDP
+        # revokes stops working within that time. Without it the info is kept for the token's expires_in.
+        'ACCESS_TOKEN_CACHE_LIFETIME': os.getenv('OAUTH2_ACCESS_TOKEN_CACHE', 30),
+        # Scopes per route and method; a route or method missing here is refused with a 403.
+        'ENDPOINTS': {
+            '/api/v1/config-values': {
+                'post': {
+                    'name': 'AddConfigValue',
+                    'desc': 'Add Config Value',
+                    'scopes': os.getenv('OAUTH2_ADD_SCOPE'),
+                },
+            },
+            '/api/v1/config-values/{id}': {
+                'put': {
+                    'name': 'UpdateConfigValue',
+                    'desc': 'Update Config Value',
+                    'scopes': os.getenv('OAUTH2_UPDATE_SCOPE'),
+                },
+                'delete': {
+                    'name': 'DeleteConfigValue',
+                    'desc': 'Delete Config Value',
+                    'scopes': os.getenv('OAUTH2_DELETE_SCOPE'),
+                },
+            },
+            '/api/v1/config-values/all/shows/{show_id}/clone/{to_show_id}': {
+                'post': {
+                    'name': 'CloneConfigValues',
+                    'desc': 'Clone Config Values',
+                    'scopes': os.getenv('OAUTH2_CLONE_SCOPE'),
+                },
+            },
+        },
+    },
+}
 
 
 STATICFILES_DIRS = [

@@ -47,7 +47,7 @@ class LogHandlersTest(SimpleTestCase):
 
         for name in LOGGERS:
             with self.subTest(logger=name or 'root'):
-                self.assertEqual(sorted(cls for cls, _ in report[name]), ['FileHandler', 'StreamHandler'])
+                self.assertEqual(sorted(cls for cls, _ in report[name]), ['RedactingFileHandler', 'RedactingStreamHandler'])
 
     def test_an_empty_value_leaves_every_logger_without_local_sinks(self):
         # What a deployed image sets once the OTLP bridge ships: the process writes neither a file nor stdout.
@@ -62,7 +62,7 @@ class LogHandlersTest(SimpleTestCase):
     def test_a_single_sink_can_be_chosen(self):
         report, stderr = self._boot(LOG_HANDLERS='console')
 
-        self.assertEqual(report['api'], [['StreamHandler', []]])
+        self.assertEqual(report['api'], [['RedactingStreamHandler', []]])
         self.assertEqual(stderr.count('probe line'), 1, 'the api line reached the console more than once')
 
     def test_no_logger_emails_errors_to_the_admins(self):
@@ -74,4 +74,4 @@ class LogHandlersTest(SimpleTestCase):
         # It used to carry require_debug_true, so ENV=production silenced it.
         report, _ = self._boot(LOG_HANDLERS='console', ENV='production')
 
-        self.assertEqual(report['api'], [['StreamHandler', []]])
+        self.assertEqual(report['api'], [['RedactingStreamHandler', []]])
