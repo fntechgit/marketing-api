@@ -216,10 +216,10 @@ CACHES = {
 # logging
 
 # The local sinks, file and console: LOG_HANDLERS picks them for every logger below. The default
-# keeps both, for development. An empty value leaves the process with no local output at all, so a
-# deployed image keeps console until the OTLP bridge ships; then it sets the variable empty and the
-# process logs only through OTLP (vault: patterns/microservices/observability-otel.md, "Local log
-# sinks"). Errors are not emailed to admins: alerting comes from Loki.
+# keeps both, for development. An empty value leaves the app's loggers with no local output at all,
+# so a deployed image keeps console until the OTLP bridge ships; then it sets the variable empty and
+# the process logs only through OTLP (vault: patterns/microservices/observability-otel.md, "Local
+# log sinks"). Errors are not emailed to admins: alerting comes from Loki.
 _LOCAL_SINKS = ('file', 'console')
 # A name other than file or console is ignored, so a stale value cannot stop the service booting.
 # With no sink left every logger gets a NullHandler: a logger with no handler at all would hand
@@ -292,6 +292,21 @@ LOGGING = {
         'test': {
             'handlers': _LOG_HANDLERS,
             'level': os.getenv('TEST_LOG_LEVEL', 'DEBUG'),
+            'propagate': False,
+        },
+        # The OTLP bridge's own diagnostics: audit.otlp (backend/otel.py: enabled, flush timed out)
+        # and opentelemetry (the SDK: failed export, retry). They keep the console whatever
+        # LOG_HANDLERS says and are never bridged, since a pipeline cannot report its own failure
+        # through itself: with no sink left, a collector that rejects the exports would otherwise
+        # leave no trace anywhere. opentelemetry stays at WARNING, so the SDK's routine lines stay out.
+        'audit.otlp': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'opentelemetry': {
+            'handlers': ['console'],
+            'level': 'WARNING',
             'propagate': False,
         },
     },

@@ -8,14 +8,20 @@ from django.test import SimpleTestCase
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 LOGGERS = ('', 'django', 'api', 'serializers', 'oauth2', 'jobs', 'test')
+# The OTLP bridge's own loggers: backend/otel.py logs on audit.otlp, the SDK under opentelemetry.
+DIAGNOSTICS = ('audit.otlp', 'opentelemetry')
 
 # Boots Django in a fresh process (settings apply LOGGING once, at import), logs one line on the
-# api logger and prints, per logger, the classes of its handlers and the filters of each.
+# api logger and on the bridge's own loggers, and prints, per logger, the classes of its handlers
+# and the filters of each.
 PROBE = '''
 import json, logging, os, sys
 import django
 django.setup()
 logging.getLogger("api").warning("probe line")
+logging.getLogger("audit.otlp").warning("otlp diagnostic")
+logging.getLogger("opentelemetry.exporter.otlp.proto.http._log_exporter").error("export failure")
+logging.getLogger("opentelemetry.sdk").info("sdk chatter")
 for handler in logging.getLogger("").handlers + logging.getLogger("api").handlers:
     handler.flush()
 report = {
@@ -36,7 +42,7 @@ class LogHandlersTest(SimpleTestCase):
         if 'LOG_HANDLERS' not in env:
             run_env.pop('LOG_HANDLERS', None)
         result = subprocess.run(
-            [sys.executable, '-c', PROBE, *LOGGERS],
+            [sys.executable, '-c', PROBE, *LOGGERS, *DIAGNOSTICS],
             cwd=REPO_ROOT, env=run_env, capture_output=True, text=True, timeout=120,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -75,3 +81,18 @@ class LogHandlersTest(SimpleTestCase):
         report, _ = self._boot(LOG_HANDLERS='console', ENV='production')
 
         self.assertEqual(report['api'], [['RedactingStreamHandler', []]])
+
+    def test_the_bridge_diagnostics_keep_the_console_whatever_the_value(self):
+        # With no local sink the app's lines leave only through OTLP. When that export fails, the
+        # error that says so cannot travel through it: audit.otlp and opentelemetry are never
+        # bridged and always write to the console, once.
+        for value in ('', 'file,console'):
+            with self.subTest(LOG_HANDLERS=value):
+                report, stderr = self._boot(LOG_HANDLERS=value)
+
+                for name in DIAGNOSTICS:
+                    self.assertEqual(report[name], [['RedactingStreamHandler', []]])
+                self.assertEqual(stderr.count('otlp diagnostic'), 1)
+                self.assertEqual(stderr.count('export failure'), 1)
+                # opentelemetry is held at WARNING: the SDK's routine lines stay out.
+                self.assertNotIn('sdk chatter', stderr)
