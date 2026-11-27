@@ -46,11 +46,6 @@ DEBUG = False if ENV == 'production' else True
 
 ALLOWED_HOSTS = ['*']
 
-# https://docs.djangoproject.com/en/3.0/howto/error-reporting/
-# string should have this format
-# name1,email1|name2,email2|....|nameN,emailN
-# admin from email
-SERVER_EMAIL = os.getenv('SERVER_EMAIL')
 # Application definition
 
 INSTALLED_APPS = [
