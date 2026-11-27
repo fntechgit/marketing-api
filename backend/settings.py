@@ -348,8 +348,6 @@ STORAGES = {
 }
 
 # OAuth2, read by base_api_utils.security (OAuth2Authentication, oauth2_scope_required).
-# ACCESS_TOKEN_CACHE_LIFETIME is left out on purpose: token info is cached for the token's
-# expires_in, as it was before the move to the library.
 OAUTH2 = {
     'IDP': {
         'BASE_URL': os.getenv('OAUTH2_IDP_BASE_URL'),
@@ -358,6 +356,9 @@ OAUTH2 = {
     'CLIENT': {
         'ID': os.getenv('OAUTH2_CLIENT_ID'),
         'SECRET': os.getenv('OAUTH2_CLIENT_SECRET'),
+        # Seconds the token info stays cached before the token is introspected again: a token the IDP
+        # revokes stops working within that time. Without it the info is kept for the token's expires_in.
+        'ACCESS_TOKEN_CACHE_LIFETIME': os.getenv('OAUTH2_ACCESS_TOKEN_CACHE', 30),
         # Scopes per route and method; a route or method missing here is refused with a 403.
         'ENDPOINTS': {
             '/api/v1/config-values': {

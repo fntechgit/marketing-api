@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import requests
 from django.conf import settings
+from django.core.cache import cache as token_info_cache
 from django.test import override_settings
 from rest_framework.response import Response
 from rest_framework.test import APITestCase
@@ -177,3 +178,37 @@ class OAuth2SecurityTest(APITestCase):
         _, post, _ = self._call_with_scope('post', '/api/v1/config-values', ADD_SCOPE)
 
         self.assertIs(post.call_args.kwargs['verify'], True)
+
+
+class TokenInfoCacheTest(APITestCase):
+    """The token info is kept in the cache (Redis) for 30 seconds, not for the token's whole lifetime."""
+
+    # OAuth2Authentication reads the Authorization header as bytes (DRF's get_authorization_header),
+    # and the token info is cached under the token as read.
+    CACHE_KEY = TOKEN.encode()
+
+    def setUp(self):
+        env = patch.dict(os.environ, {'ENV': 'local'})
+        env.start()
+        self.addCleanup(env.stop)
+        oauth2 = override_settings(OAUTH2=_oauth2_with_operation_scopes())
+        oauth2.enable()
+        self.addCleanup(oauth2.disable)
+        view = patch('api.views.private.ConfigValueCreateAPIView.create', return_value=Response(status=201))
+        view.start()
+        self.addCleanup(view.stop)
+        token_info_cache.delete(self.CACHE_KEY)
+        self.addCleanup(token_info_cache.delete, self.CACHE_KEY)
+
+    def test_a_token_is_introspected_again_after_30_seconds(self):
+        # The IDP says the token lives one more hour; a token revoked in the meantime must stop
+        # working within 30 seconds, as in purchases-api.
+        introspection = MagicMock(return_value=_introspection(200, _token_info(ADD_SCOPE)))
+
+        with patch('base_api_utils.security.access_token_service.requests.post', introspection):
+            response = self.client.post('/api/v1/config-values', HTTP_AUTHORIZATION=f'Bearer {TOKEN}')
+
+        self.assertEqual(response.status_code, 201, response.content)
+        introspection.assert_called_once()
+        ttl = token_info_cache.ttl(self.CACHE_KEY)
+        self.assertTrue(0 < ttl <= 30, f'the token info is cached for {ttl} seconds')
