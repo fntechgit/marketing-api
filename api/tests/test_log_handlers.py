@@ -50,7 +50,7 @@ class LogHandlersTest(SimpleTestCase):
                 self.assertEqual(sorted(cls for cls, _ in report[name]), ['FileHandler', 'StreamHandler'])
 
     def test_an_empty_value_leaves_every_logger_without_local_sinks(self):
-        # What the container image sets: a deployed process writes neither a file nor stdout.
+        # What a deployed image sets once the OTLP bridge ships: the process writes neither a file nor stdout.
         report, stderr = self._boot(LOG_HANDLERS='')
 
         for name in LOGGERS:

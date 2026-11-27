@@ -195,10 +195,11 @@ CACHES = {
 # https://docs.djangoproject.com/en/3.0/topics/logging/
 # logging
 
-# The local sinks, file and console, are for development: LOG_HANDLERS picks them for every logger
-# below. The default keeps both; the container image sets it empty, so a deployed process logs only
-# through OTLP (vault: patterns/microservices/observability-otel.md, "Local log sinks"). Errors are
-# not emailed to admins: alerting comes from Loki.
+# The local sinks, file and console: LOG_HANDLERS picks them for every logger below. The default
+# keeps both, for development. An empty value leaves the process with no local output at all, so a
+# deployed image keeps console until the OTLP bridge ships; then it sets the variable empty and the
+# process logs only through OTLP (vault: patterns/microservices/observability-otel.md, "Local log
+# sinks"). Errors are not emailed to admins: alerting comes from Loki.
 _LOCAL_SINKS = ('file', 'console')
 # A name other than file or console is ignored, so a stale value cannot stop the service booting.
 # With no sink left every logger gets a NullHandler: a logger with no handler at all would hand
