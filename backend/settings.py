@@ -11,9 +11,13 @@ https://docs.djangoproject.com/en/3.0/ref/settings/
 """
 
 import os
+import logging
 from django.utils.translation import gettext_lazy as _
 from dotenv import load_dotenv
 import sys
+
+from backend.env_var_eval import env_bool
+from base_api_utils.logging_config import build_logging
 
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
@@ -76,6 +80,20 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+# Tracing (base_api_utils.otel_instrumentation). Stays below MIDDLEWARE: DjangoInstrumentor inserts
+# its middleware into the list that exists when setup() runs. marketing-api runs no Celery worker.
+OTEL_INSTRUMENTATION_ENABLED = env_bool("OTEL_INSTRUMENTATION_ENABLED", False)
+
+if OTEL_INSTRUMENTATION_ENABLED:
+    try:
+        from base_api_utils.otel_instrumentation import DjangoTelemetry
+
+        DjangoTelemetry.setup(ENV, service_name="marketing-api", celery=False)
+    except Exception as exc:
+        logging.getLogger("audit.otlp").warning(
+            "Failed to initialize OpenTelemetry tracing: %s", exc
+        )
 
 # https://docs.djangoproject.com/en/3.0/ref/settings/#std:setting-ROOT_URLCONF
 ROOT_URLCONF = 'backend.urls'
@@ -193,87 +211,23 @@ CACHES = {
 # https://docs.djangoproject.com/en/3.0/topics/logging/
 # logging
 
-# The local sinks, file and console: LOG_HANDLERS picks them for every logger below. The default
-# keeps both, for development. An empty value leaves the process with no local output at all, so a
-# deployed image keeps console until the OTLP bridge ships; then it sets the variable empty and the
-# process logs only through OTLP (vault: patterns/microservices/observability-otel.md, "Local log
-# sinks"). Errors are not emailed to admins: alerting comes from Loki.
-_LOCAL_SINKS = ('file', 'console')
-# A name other than file or console is ignored, so a stale value cannot stop the service booting.
-# With no sink left every logger gets a NullHandler: a logger with no handler at all would hand
-# its warnings to logging.lastResort, which writes them to stderr.
-_LOG_HANDLERS = [h.strip() for h in os.getenv('LOG_HANDLERS', 'file,console').split(',')
-                 if h.strip() in _LOCAL_SINKS] or ['null']
+# LOG_HANDLERS picks the local sinks (file, console; both by default) and an empty value leaves
+# only the OTLP bridge (vault: patterns/microservices/observability-otel.md, "Local log sinks").
+# Both sinks write each record redacted. audit.otlp, the bridge's own logger, is declared by
+# build_logging. Errors are not emailed to admins: alerting comes from Loki.
+_API_LOG_LEVEL = os.getenv('API_LOG_LEVEL', 'DEBUG')
 
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'console': {
-            # exact format is not important, this is the minimum information
-            'format': '%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
-        },
-        'file': {
-            # exact format is not important, this is the minimum information
-            'format': '%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
-        },
+LOGGING = build_logging(
+    log_file=os.path.join(BASE_DIR, "logs/api.log"),
+    loggers={
+        'django': os.getenv('DJANGO_LOG_LEVEL', 'DEBUG'),
+        'api': _API_LOG_LEVEL,
+        'serializers': _API_LOG_LEVEL,
+        'oauth2': os.getenv('OAUTH2_LOG_LEVEL', 'DEBUG'),
+        'jobs': os.getenv('CRON_JOBS_LOG_LEVEL', 'DEBUG'),
+        'test': os.getenv('TEST_LOG_LEVEL', 'DEBUG'),
     },
-    'handlers': {
-        'null': {
-            'class': 'logging.NullHandler',
-        },
-        # Both local sinks write each record redacted (backend/log_handlers.py).
-        'console': {
-            'class': 'backend.log_handlers.RedactingStreamHandler',
-            'formatter': 'console',
-        },
-        'file': {
-            'formatter': 'file',
-            'class': 'backend.log_handlers.RedactingFileHandler',
-            'filename': os.path.join(BASE_DIR, "logs/api.log"),
-            # Opened on the first line written, so a process whose loggers do not use it creates no file.
-            'delay': True,
-        },
-    },
-    # The named loggers do not propagate: the root logger has the same sinks, and each line would
-    # be written twice.
-    'loggers': {
-        '': {
-            'handlers': _LOG_HANDLERS,
-            'level': 'DEBUG',
-        },
-        'django': {
-            'handlers': _LOG_HANDLERS,
-            'level': os.getenv('DJANGO_LOG_LEVEL', 'DEBUG'),
-            'propagate': False,
-        },
-        'api': {
-            'handlers': _LOG_HANDLERS,
-            'level': os.getenv('API_LOG_LEVEL', 'DEBUG'),
-            'propagate': False,
-        },
-        'serializers': {
-            'handlers': _LOG_HANDLERS,
-            'level': os.getenv('API_LOG_LEVEL', 'DEBUG'),
-            'propagate': False,
-        },
-        'oauth2': {
-            'handlers': _LOG_HANDLERS,
-            'level': os.getenv('OAUTH2_LOG_LEVEL', 'DEBUG'),
-            'propagate': False,
-        },
-        'jobs': {
-            'handlers': _LOG_HANDLERS,
-            'level': os.getenv('CRON_JOBS_LOG_LEVEL', 'DEBUG'),
-            'propagate': False,
-        },
-        'test': {
-            'handlers': _LOG_HANDLERS,
-            'level': os.getenv('TEST_LOG_LEVEL', 'DEBUG'),
-            'propagate': False,
-        },
-    },
-}
+)
 
 REST_FRAMEWORK = {
     #'EXCEPTION_HANDLER': 'api.exceptions.custom_exception_handler',

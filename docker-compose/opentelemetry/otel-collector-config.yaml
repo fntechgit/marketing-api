@@ -1,0 +1,88 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+        cors:
+          allowed_origins:
+            - "http://localhost"
+            - "http://localhost:*"
+            - "https://localhost"
+            - "https://localhost:*"
+          allowed_headers:
+            - "*"
+
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: "otel-collector"
+          scrape_interval: 10s
+          static_configs:
+            - targets: ["0.0.0.0:8888"]
+
+processors:
+  batch:
+    send_batch_size: 1024
+    timeout: 1s
+    send_batch_max_size: 2048
+
+  memory_limiter:
+    limit_mib: 400
+    spike_limit_mib: 100
+    check_interval: 1s
+
+exporters:
+  debug:
+    verbosity: normal
+    sampling_initial: 5
+    sampling_thereafter: 200
+
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+    namespace: marketing_api
+    const_labels:
+      environment: development
+
+  file/logs:
+    path: /var/log/otel/otel-logs.json
+
+  file/traces:
+    path: /var/log/otel/otel-traces.json
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+  pprof:
+    endpoint: 0.0.0.0:1888
+
+  zpages:
+    endpoint: 0.0.0.0:55679
+
+service:
+  extensions: [health_check, pprof, zpages]
+
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [debug]
+
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [debug, file/logs]
+
+    # Spans from base_api_utils.otel_instrumentation (OTEL_EXPORTER_MODE=otel_endpoint).
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [debug, file/traces]
+
+  telemetry:
+    logs:
+      level: "info"
+    metrics:
+      level: basic

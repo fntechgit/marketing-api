@@ -46,6 +46,10 @@ class IDP(BaseHTTPRequestHandler):
 
 
 django.setup()
+import logging
+# Root is at WARNING (build_logging), so urllib3's DEBUG request line is raised here: it carries the
+# query string, token included, and has to go through the console sink to be tested.
+logging.getLogger('urllib3').setLevel(logging.DEBUG)
 from django.conf import settings
 from base_api_utils.security.access_token_service import AccessTokenService
 

@@ -29,7 +29,11 @@ os._exit(0)
 
 
 class LogHandlersTest(SimpleTestCase):
-    """LOG_HANDLERS selects the local sinks of every logger LOGGING declares."""
+    """LOG_HANDLERS selects the local sinks of every logger this service's LOGGING declares.
+
+    build_logging itself (a single sink, unknown names, no require_debug_true) is tested in
+    base-api-utils. These boot this service's settings.
+    """
 
     def _boot(self, **env):
         run_env = {**os.environ, 'DJANGO_SETTINGS_MODULE': 'backend.settings', **env}
@@ -58,20 +62,3 @@ class LogHandlersTest(SimpleTestCase):
                 self.assertEqual(report[name], [['NullHandler', []]])
         # Not even through logging.lastResort, which writes to stderr for a logger with no handler.
         self.assertNotIn('probe line', stderr)
-
-    def test_a_single_sink_can_be_chosen(self):
-        report, stderr = self._boot(LOG_HANDLERS='console')
-
-        self.assertEqual(report['api'], [['RedactingStreamHandler', []]])
-        self.assertEqual(stderr.count('probe line'), 1, 'the api line reached the console more than once')
-
-    def test_no_logger_emails_errors_to_the_admins(self):
-        report, _ = self._boot(LOG_HANDLERS='file,console,mail_admins')
-
-        self.assertNotIn('AdminEmailHandler', json.dumps(report))
-
-    def test_the_console_does_not_depend_on_debug(self):
-        # It used to carry require_debug_true, so ENV=production silenced it.
-        report, _ = self._boot(LOG_HANDLERS='console', ENV='production')
-
-        self.assertEqual(report['api'], [['RedactingStreamHandler', []]])
