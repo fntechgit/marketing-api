@@ -11,9 +11,13 @@ https://docs.djangoproject.com/en/3.0/ref/settings/
 """
 
 import os
+import logging
 from django.utils.translation import gettext_lazy as _
 from dotenv import load_dotenv
 import sys
+
+from backend.env_var_eval import env_bool
+from base_api_utils.logging_config import build_logging
 
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
@@ -46,17 +50,6 @@ DEBUG = False if ENV == 'production' else True
 
 ALLOWED_HOSTS = ['*']
 
-# https://github.com/sklarsa/django-sendgrid-v5
-SENDGRID_API_KEY = os.getenv('SENDGRID_API_KEY')
-EMAIL_BACKEND = "sendgrid_backend.SendgridBackend"
-
-FROM_EMAIL = os.getenv("FROM_EMAIL")
-# https://docs.djangoproject.com/en/3.0/howto/error-reporting/
-# string should have this format
-# name1,email1|name2,email2|....|nameN,emailN
-ADMINS = [tuple(x.split(',')) for x in os.getenv('ADMINS', '').split('|')]
-# admin from email
-SERVER_EMAIL = os.getenv('SERVER_EMAIL')
 # Application definition
 
 INSTALLED_APPS = [
@@ -71,6 +64,9 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django_filters',
     'django_extensions',
+    # Imported by base_api_utils.security (its package pulls the Celery task-result views in);
+    # marketing-api runs no Celery, so the tables it migrates stay empty.
+    'django_celery_results',
     'api.apps.ApiConfig',
 ]
 
@@ -84,6 +80,20 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+# Tracing (base_api_utils.otel_instrumentation). Stays below MIDDLEWARE: DjangoInstrumentor inserts
+# its middleware into the list that exists when setup() runs. marketing-api runs no Celery worker.
+OTEL_INSTRUMENTATION_ENABLED = env_bool("OTEL_INSTRUMENTATION_ENABLED", False)
+
+if OTEL_INSTRUMENTATION_ENABLED:
+    try:
+        from base_api_utils.otel_instrumentation import DjangoTelemetry
+
+        DjangoTelemetry.setup(ENV, service_name="marketing-api", celery=False)
+    except Exception as exc:
+        logging.getLogger("audit.otlp").warning(
+            "Failed to initialize OpenTelemetry tracing: %s", exc
+        )
 
 # https://docs.djangoproject.com/en/3.0/ref/settings/#std:setting-ROOT_URLCONF
 ROOT_URLCONF = 'backend.urls'
@@ -201,84 +211,23 @@ CACHES = {
 # https://docs.djangoproject.com/en/3.0/topics/logging/
 # logging
 
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'filters': {
-        'require_debug_false': {
-            '()': 'django.utils.log.RequireDebugFalse',
-        },
-        'require_debug_true': {
-            '()': 'django.utils.log.RequireDebugTrue',
-        },
+# LOG_HANDLERS picks the local sinks (file, console; both by default) and an empty value leaves
+# only the OTLP bridge (vault: patterns/microservices/observability-otel.md, "Local log sinks").
+# Both sinks write each record redacted. audit.otlp, the bridge's own logger, is declared by
+# build_logging. Errors are not emailed to admins: alerting comes from Loki.
+_API_LOG_LEVEL = os.getenv('API_LOG_LEVEL', 'DEBUG')
+
+LOGGING = build_logging(
+    log_file=os.path.join(BASE_DIR, "logs/api.log"),
+    loggers={
+        'django': os.getenv('DJANGO_LOG_LEVEL', 'DEBUG'),
+        'api': _API_LOG_LEVEL,
+        'serializers': _API_LOG_LEVEL,
+        'oauth2': os.getenv('OAUTH2_LOG_LEVEL', 'DEBUG'),
+        'jobs': os.getenv('CRON_JOBS_LOG_LEVEL', 'DEBUG'),
+        'test': os.getenv('TEST_LOG_LEVEL', 'DEBUG'),
     },
-    'formatters': {
-        'console': {
-            # exact format is not important, this is the minimum information
-            'format': '%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
-        },
-        'file': {
-            # exact format is not important, this is the minimum information
-            'format': '%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
-        },
-    },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'formatter': 'console',
-            'filters': ['require_debug_true'],
-        },
-        'file': {
-            'formatter': 'file',
-            'class': 'logging.FileHandler',
-            'filename': os.path.join(BASE_DIR, "logs/api.log"),
-        },
-        'mail_admins': {
-            'class': 'django.utils.log.AdminEmailHandler',
-            'include_html': True,
-            'email_backend': 'sendgrid_backend.SendgridBackend',
-            'filters': ['require_debug_false'],
-            'level': 'ERROR',
-        }
-    },
-    'loggers': {
-        '': {
-            'handlers': ['file', 'mail_admins'],
-            'level': 'DEBUG',
-            'propagate': True,
-        },
-        'django': {
-            'handlers': ['file', 'mail_admins'],
-            'level': os.getenv('DJANGO_LOG_LEVEL', 'DEBUG'),
-            'propagate': True,
-        },
-        'api': {
-            'handlers': ['file', 'mail_admins'],
-            'level': os.getenv('API_LOG_LEVEL', 'DEBUG'),
-            'propagate': True,
-        },
-        'serializers': {
-            'handlers': ['file', 'mail_admins'],
-            'level': os.getenv('API_LOG_LEVEL', 'DEBUG'),
-            'propagate': True,
-        },
-        'oauth2': {
-            'handlers': ['file', 'console'],
-            'level': os.getenv('OAUTH2_LOG_LEVEL', 'DEBUG'),
-            'propagate': True,
-        },
-        'jobs': {
-            'handlers': ['file', 'console'],
-            'level': os.getenv('CRON_JOBS_LOG_LEVEL', 'DEBUG'),
-            'propagate': True,
-        },
-        'test': {
-            'handlers': ['console'],
-            'level': os.getenv('TEST_LOG_LEVEL', 'DEBUG'),
-            'propagate': True,
-        },
-    },
-}
+)
 
 REST_FRAMEWORK = {
     #'EXCEPTION_HANDLER': 'api.exceptions.custom_exception_handler',
@@ -347,15 +296,49 @@ STORAGES = {
     },
 }
 
-OAUTH2_IDP_BASE_URL = os.getenv('OAUTH2_IDP_BASE_URL')
-OAUTH2_IDP_INTROSPECTION_ENDPOINT = os.getenv('OAUTH2_IDP_INTROSPECTION_ENDPOINT')
-OAUTH2_CLIENT_ID = os.getenv('OAUTH2_CLIENT_ID')
-OAUTH2_CLIENT_SECRET = os.getenv('OAUTH2_CLIENT_SECRET')
-
-OAUTH2_ADD_SCOPE = os.getenv('OAUTH2_ADD_SCOPE')
-OAUTH2_UPDATE_SCOPE = os.getenv('OAUTH2_UPDATE_SCOPE')
-OAUTH2_DELETE_SCOPE = os.getenv('OAUTH2_DELETE_SCOPE')
-OAUTH2_CLONE_SCOPE = os.getenv('OAUTH2_CLONE_SCOPE')
+# OAuth2, read by base_api_utils.security (OAuth2Authentication, oauth2_scope_required).
+OAUTH2 = {
+    'IDP': {
+        'BASE_URL': os.getenv('OAUTH2_IDP_BASE_URL'),
+        'INTROSPECTION_ENDPOINT': os.getenv('OAUTH2_IDP_INTROSPECTION_ENDPOINT'),
+    },
+    'CLIENT': {
+        'ID': os.getenv('OAUTH2_CLIENT_ID'),
+        'SECRET': os.getenv('OAUTH2_CLIENT_SECRET'),
+        # Seconds the token info stays cached before the token is introspected again: a token the IDP
+        # revokes stops working within that time. Without it the info is kept for the token's expires_in.
+        'ACCESS_TOKEN_CACHE_LIFETIME': os.getenv('OAUTH2_ACCESS_TOKEN_CACHE', 30),
+        # Scopes per route and method; a route or method missing here is refused with a 403.
+        'ENDPOINTS': {
+            '/api/v1/config-values': {
+                'post': {
+                    'name': 'AddConfigValue',
+                    'desc': 'Add Config Value',
+                    'scopes': os.getenv('OAUTH2_ADD_SCOPE'),
+                },
+            },
+            '/api/v1/config-values/{id}': {
+                'put': {
+                    'name': 'UpdateConfigValue',
+                    'desc': 'Update Config Value',
+                    'scopes': os.getenv('OAUTH2_UPDATE_SCOPE'),
+                },
+                'delete': {
+                    'name': 'DeleteConfigValue',
+                    'desc': 'Delete Config Value',
+                    'scopes': os.getenv('OAUTH2_DELETE_SCOPE'),
+                },
+            },
+            '/api/v1/config-values/all/shows/{show_id}/clone/{to_show_id}': {
+                'post': {
+                    'name': 'CloneConfigValues',
+                    'desc': 'Clone Config Values',
+                    'scopes': os.getenv('OAUTH2_CLONE_SCOPE'),
+                },
+            },
+        },
+    },
+}
 
 
 STATICFILES_DIRS = [

@@ -54,6 +54,27 @@ services:
     networks:
       - marketing-api-local-net
     env_file: ./backend/.env
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:${OTEL_COLLECTOR_IMAGE_TAG}
+    profiles: ["otel"]
+    # The image runs as UID 10001, which cannot write to logs/otel on a Linux host. As the host user
+    # it writes to the committed logs/otel, and its files stay readable without sudo.
+    user: "${OTEL_COLLECTOR_USER:-1000:1000}"
+    volumes:
+      - ./docker-compose/opentelemetry/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml
+      - ./logs/otel:/var/log/otel
+    # Loopback only: the receivers and the diagnostic endpoints take no authentication. The app
+    # container reaches the collector as otel-collector on the compose network.
+    ports:
+      - "127.0.0.1:1888:1888" # pprof extension
+      - "127.0.0.1:8888:8888" # Prometheus metrics exposed by the Collector
+      - "127.0.0.1:8889:8889" # Prometheus exporter metrics
+      - "127.0.0.1:13133:13133" # health_check extension
+      - "127.0.0.1:4317:4317" # OTLP gRPC receiver
+      - "127.0.0.1:4318:4318" # OTLP HTTP receiver
+      - "127.0.0.1:55679:55679" # zpages extension
+    networks:
+      - marketing-api-local-net
 volumes:
   marketing_db_data:
 networks:

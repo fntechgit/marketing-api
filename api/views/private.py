@@ -5,10 +5,9 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework import mixins
 from ..models import ConfigValue
-from ..security import OAuth2Authentication, oauth2_scope_required
+from base_api_utils.security import OAuth2Authentication, oauth2_scope_required
 from ..serializers import ConfigValueWriteSerializer
 from ..services import ConfigValuesService
-from ..utils import config
 import logging
 import traceback
 
@@ -21,7 +20,7 @@ class ConfigValueCreateAPIView(CreateAPIView):
     def get_serializer_class(self):
         return ConfigValueWriteSerializer
 
-    @oauth2_scope_required(required_scope=config('OAUTH2_ADD_SCOPE'))
+    @oauth2_scope_required()
     def post(self, request, *args, **kwargs):
         try:
             logging.getLogger('api').debug('calling ConfigValueCreateAPIView::post')
@@ -47,7 +46,7 @@ class ConfigValueUpdateDestroyAPIView(mixins.UpdateModelMixin,
     def patch(self, request, *args, **kwargs):
         pass
 
-    @oauth2_scope_required(required_scope=config('OAUTH2_UPDATE_SCOPE'))
+    @oauth2_scope_required()
     def put(self, request, *args, **kwargs):
         try:
             logging.getLogger('api').debug('calling ConfigValueCreateAPIView::put')
@@ -59,7 +58,7 @@ class ConfigValueUpdateDestroyAPIView(mixins.UpdateModelMixin,
             logging.getLogger('api').error(traceback.format_exc())
             return Response('server error', status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    @oauth2_scope_required(required_scope=config('OAUTH2_DELETE_SCOPE'))
+    @oauth2_scope_required()
     def delete(self, request, *args, **kwargs):
         try:
             logging.getLogger('api').debug('calling ConfigValueCreateAPIView::delete')
@@ -78,7 +77,7 @@ class ConfigValueCloneAPIView(GenericAPIView):
     def get_serializer_class(self):
         return ConfigValueWriteSerializer
 
-    @oauth2_scope_required(required_scope=config('OAUTH2_CLONE_SCOPE'))
+    @oauth2_scope_required()
     def post(self, request, show_id, to_show_id, *args, **kwargs):
         try:
             service = ConfigValuesService()
