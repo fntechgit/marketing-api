@@ -12,4 +12,5 @@ static/
 settings_local.py
 .claude
 .nvmrc
-logs/otel/
+logs/otel/*
+!logs/otel/.gitkeep
