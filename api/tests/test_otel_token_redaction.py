@@ -1,10 +1,12 @@
 from base_api_utils.otel_instrumentation import DjangoTelemetry
 from django.core.cache import cache
 from django.test import SimpleTestCase
+from opentelemetry import trace
 from opentelemetry.instrumentation.django import DjangoInstrumentor
 from opentelemetry.instrumentation.mysqlclient import MySQLClientInstrumentor
 from opentelemetry.instrumentation.redis import RedisInstrumentor
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
+from opentelemetry.trace import SpanKind
 
 from api.tests.otel_test_provider import span_exporter as _exporter
 
@@ -46,10 +48,13 @@ class OtelTokenRedactionTest(SimpleTestCase):
         self.assertIn('expand=values', server_spans[0].attributes['http.url'])
 
     def test_cache_keys_are_not_recorded(self):
-        # AccessTokenService caches token info under the raw access token.
-        cache.set(TOKEN, {'user_id': 1}, 5)
-        cache.get(TOKEN)
-        cache.delete(TOKEN)
+        # AccessTokenService caches token info under the raw access token, inside the request: a
+        # cache call with no parent span is dropped by the sampler outside ENV=test.
+        with trace.get_tracer(__name__).start_as_current_span('request', kind=SpanKind.SERVER):
+            cache.set(TOKEN, {'user_id': 1}, 5)
+            cache.get(TOKEN)
+            cache.delete(TOKEN)
 
-        self.assertTrue(_exporter.get_finished_spans())
+        redis_spans = [s for s in _exporter.get_finished_spans() if s.attributes.get('db.system') == 'redis']
+        self.assertEqual(len(redis_spans), 3)
         self.assertEqual(self._attributes_with_token(), [])

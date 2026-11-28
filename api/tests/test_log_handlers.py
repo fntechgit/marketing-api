@@ -39,6 +39,9 @@ class LogHandlersTest(SimpleTestCase):
         run_env = {**os.environ, 'DJANGO_SETTINGS_MODULE': 'backend.settings', **env}
         if 'LOG_HANDLERS' not in env:
             run_env.pop('LOG_HANDLERS', None)
+        # Only the local sinks are under test: an OTLP bridge or tracing turned on in the environment
+        # (backend/.env outside ENV=test) would add its handler to every logger.
+        run_env.update(OTEL_SERVICE_ENABLED='false', OTEL_INSTRUMENTATION_ENABLED='false')
         result = subprocess.run(
             [sys.executable, '-c', PROBE, *LOGGERS],
             cwd=REPO_ROOT, env=run_env, capture_output=True, text=True, timeout=120,
