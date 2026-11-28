@@ -1,0 +1,77 @@
+name: Marketing API testing
+
+on:
+  pull_request:
+    branches:
+      - master
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - '**.md'
+
+jobs:
+  test:
+    # Pinned: ubuntu-latest resolves to Ubuntu 26.04, for which setup-python
+    # has no Python 3.12.7 build.
+    runs-on: ubuntu-24.04
+
+    env:
+      ENV: test
+      SECRET_KEY: secret_key
+      DB_ENGINE: django.db.backends.mysql
+      DB_NAME: test_marketing_db
+      DB_USER: root
+      DB_PASSWORD: root
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      REDIS_LOCATION: redis://127.0.0.1:6379/1
+      # No storage credentials: the S3 and Swift tests skip, and the upload test stores in memory.
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: test_marketing_db
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping --silent"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 3
+
+      redis:
+        image: redis:6.2
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 3
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.12.7
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Wait for MySQL to be ready
+        run: |
+          until mysqladmin ping -h 127.0.0.1 --silent; do
+            echo "Waiting for MySQL...";
+            sleep 5;
+          done
+
+      - name: Run tests
+        run: python manage.py test

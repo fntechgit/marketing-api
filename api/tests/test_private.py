@@ -1,3 +1,6 @@
+from django.conf import settings
+from django.core.files.storage import default_storage
+from django.test import override_settings
 from django.urls import reverse
 from rest_framework.test import APITestCase
 from ..models import ConfigValue
@@ -28,6 +31,9 @@ class PrivateTests(APITestCase):
         ConfigValue.objects.create(key='key.5', value='<p>test2</p>', type='TEXTAREA', show_id=2)
         ConfigValue.objects.create(key='key.6', value='<p>test3</p>', type='TEXTAREA', show_id=2)
 
+    # The default storage is S3; the upload goes to memory instead, so the test needs no bucket.
+    @override_settings(STORAGES={**settings.STORAGES,
+                                 'default': {'BACKEND': 'django.core.files.storage.InMemoryStorage'}})
     def test_create_with_file(self):
         url = reverse('config-values-write:add')
         file = self.generate_photo_file()
@@ -40,11 +46,14 @@ class PrivateTests(APITestCase):
         }
 
         response = self.client.post(url, data, format='multipart')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         json_response = json.loads(response.content)
         self.assertEqual(1, ConfigValue.objects.filter(id=json_response['id']).count())
         db_object = ConfigValue.objects.filter(id=json_response['id']).get()
         self.assertEqual(db_object.key, 'key.1')
+        self.assertTrue(default_storage.exists(db_object.file.name))
 
+    # An empty value is accepted since 702c69a ("Removed validation rule for empty value on POST").
     def test_create_without_value(self):
         url = reverse('config-values-write:add')
 
@@ -56,7 +65,10 @@ class PrivateTests(APITestCase):
 
         response = self.client.post(url, data, format='multipart')
 
-        self.assertEqual(status.HTTP_412_PRECONDITION_FAILED, response.status_code)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        db_object = ConfigValue.objects.get(id=json.loads(response.content)['id'])
+        self.assertEqual(db_object.key, 'key.1')
+        self.assertIsNone(db_object.value)
 
     def test_create_update_textarea(self):
 
